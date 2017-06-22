@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>682CB246-4290-4C1A-9DB8-34261092EBCC</string>
+	<key>IDESourceControlProjectName</key>
+	<string>project</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>1ada4b9e-2a64-714b-b4a1-033c90cc985d++8880</key>
+		<string>https://192.169.0.105/svn/doc/trunk/BHG_IOSPro/DBuyer</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>DBuyer.xcodeproj/project.xcworkspace</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>1ada4b9e-2a64-714b-b4a1-033c90cc985d++8880</key>
+		<string>../..</string>
+	</dict>
+	<key>IDESourceControlProjectRepositoryRootDictionary</key>
+	<dict>
+		<key>1ada4b9e-2a64-714b-b4a1-033c90cc985d++8880</key>
+		<string>https://192.169.0.105/svn/doc</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>https://192.169.0.105/svn/doc/trunk/BHG_IOSPro/DBuyer/DBuyer.xcodeproj/project.xcworkspace</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>111</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>1ada4b9e-2a64-714b-b4a1-033c90cc985d++8880</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.subversion</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>1ada4b9e-2a64-714b-b4a1-033c90cc985d++8880</string>
+			<key>IDESourceControlWCCName</key>
+			<string>DBuyer</string>
+		</dict>
+	</array>
+</dict>
+</plist>

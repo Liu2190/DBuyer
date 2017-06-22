@@ -1,0 +1,227 @@
+//
+//  CategoryViewController.m
+//  DBuyer
+//
+//  Created by simman on 14-1-11.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "CategoryViewController.h"
+#import "CategoryCell.h"
+#import "CategorySection.h"
+#import "HttpDownload.h"
+#import "ProductListViewController.h"
+#import "SearchBarView.h"
+#import "SearchHistoryViewController.h"
+#import "StartPoint.h"
+#import "TProductListController.h"
+
+#import "TProductServer.h"
+#import "TServerFactory.h"
+#import "TUtilities.h"
+
+@interface CategoryViewController () <SearchBarViewDelegate>
+{
+    UITableView *_tableView;
+    NSInteger _section;         // 当前的选中的section
+    NSMutableArray *_categoryArray; // 分类数组
+    NSMutableArray *_secondCategoryArray; // 二级分类数据
+    BOOL isOpen;
+}
+
+@property (nonatomic, retain) SearchBarView * searchBarView;
+@end
+
+@implementation CategoryViewController
+
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
+{
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        // Custom initialization
+        _categoryArray = [[NSMutableArray alloc] init];
+        _secondCategoryArray = [[NSMutableArray alloc] init];
+        _section = -1;
+        isOpen = NO;
+    }
+    return self;
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    // Do any additional setup after loading the view from its nib.
+    [self loadViewHandle];
+}
+
+#pragma mark - viewLoadHandle
+- (void)loadViewHandle
+{
+    self.navigationController.navigationBarHidden = YES;
+    self.searchBarView = [SearchBarView searchBarView];
+    self.searchBarView.delegate = self;
+    self.searchBarView.placeHolderLabel.text = [NSString stringWithFormat:@"大家都在搜：%@",[[NSUserDefaults standardUserDefaults] objectForKey:dDefaultSearch]];
+    [self.view addSubview:self.searchBarView];
+    // 设置TableView
+    float height = (WindowHeight)-[StartPoint startPoint]-TabbarHeight;
+    _tableView = [[UITableView alloc] initWithFrame:CGRectMake(0, [StartPoint startPoint], WindowWidth, height)];
+    _tableView.backgroundColor = [UIColor colorWithRed:239.0/255.0 green:237.0/255.0 blue:216.0/255.0 alpha:1];
+    _tableView.delegate = self;
+    _tableView.dataSource = self;
+    _tableView.separatorStyle = UITableViewCellSeparatorStyleNone;  // 清除中划线
+    [self.view addSubview:_tableView];
+    [self getAClassData];
+}
+-(void)getAClassData
+{
+    [[TUtilities getInstance]popTarget:self.view status:@"加载中..."];
+    [[TServerFactory getServerInstance:@"TProductServer"]doGetAClassGoodsCallback:^(NSArray *productArray){
+        [[TUtilities getInstance]dismiss];
+        [_categoryArray removeAllObjects];
+        [_categoryArray addObjectsFromArray:productArray];
+        [_tableView reloadData];
+    } failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+
+}
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [self.leveyTabBarController hidesTabBar:YES animated:YES];
+}
+#pragma mark - navigationBarView 代理方法
+- (void)searchBarDidClickButton:(NSInteger)buttonIndex
+{
+    // 点击左键或搜索键
+    if (buttonIndex == 0) {
+        [self.navigationController popViewControllerAnimated:YES];
+    } else if (buttonIndex == 1) {
+        SearchHistoryViewController * searchVC = [[[SearchHistoryViewController alloc] initWithNibName:@"SearchHistoryViewController" bundle:nil] autorelease];
+        [self.navigationController pushViewController:searchVC animated:NO];
+    }
+}
+#pragma mark - TableView代理
+#pragma mark 设置Section的HeadView
+- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section
+{
+    NSDictionary *sectionDic = [_categoryArray objectAtIndex:section];
+    CategorySection *sectionView = [[CategorySection alloc] initWithTitle:sectionDic[@"title"] content:sectionDic[@"typeAttr"]  image:sectionDic[@"pic_url"] target:nil action:nil] ;
+    [sectionView setSectionIndex:section];
+    [sectionView addMyTarget:self Action:@selector(showCell:)];
+    if(_section == section)
+    {
+       sectionView.arrowsImageView.highlighted = isOpen;
+    }
+    else{
+        sectionView.arrowsImageView.highlighted = NO;
+    }
+    return sectionView;
+}
+
+#pragma mark Section上的按钮事件
+- (void)showCell:(CategorySection *)sender
+{
+    [_secondCategoryArray removeAllObjects];
+    if (_section != -1) {
+        isOpen = NO;
+        [_tableView reloadSections:[NSIndexSet indexSetWithIndex:_section]  withRowAnimation:UITableViewRowAnimationFade];
+    }
+    _section = [sender sectionIndex];
+    isOpen = YES;
+    sender.arrowsImageView.highlighted = !sender.arrowsImageView.highlighted;
+    
+    // 设置当前选中的Section
+    
+    if (sender.arrowsImageView.highlighted)
+    {
+        // 加载二级分类数据
+        [[TUtilities getInstance]popTarget:self.view status:@"加载中..."];
+        [[TServerFactory getServerInstance:@"TProductServer"]doGetSecondClassGoodsBy:[[_categoryArray objectAtIndex:_section] objectForKey:@"ID"] andCallback:^(NSArray *productArray)
+        {
+            [[TUtilities getInstance]dismiss];
+            [_secondCategoryArray addObject:[_categoryArray objectAtIndex:_section]];
+            [_secondCategoryArray addObjectsFromArray:productArray];
+           
+            if (_section != -1) {
+                [_tableView reloadSections:[NSIndexSet indexSetWithIndex:_section]  withRowAnimation:UITableViewRowAnimationFade];
+            }
+            NSIndexPath * indexPath = [NSIndexPath indexPathForRow:0 inSection:_section];
+            [_tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionTop animated:YES];
+            
+        } failureCallback:^(NSString *resp){
+            [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+        }];
+    }
+    else {
+        sender.arrowsImageView.highlighted = YES;
+        [_secondCategoryArray removeAllObjects];
+        isOpen = NO;
+        [_tableView reloadSections:[NSIndexSet indexSetWithIndex:_section]  withRowAnimation:UITableViewRowAnimationFade];
+        _section = -1;
+    }
+}
+#pragma mark 设置SectionHeader的高度
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section
+{
+    return 50;
+}
+
+#pragma mark 设置Row的高度
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    return 55.0f;
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
+{
+    return [_categoryArray count];
+}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    if (_section == section) {
+        return [_secondCategoryArray count];
+    }
+    return 0;
+}
+#pragma mark 设置Cell
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    NSString *identifier = @"CategoryCell";
+    CategoryCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+   // NSDictionary *cellDic = [_secondCategoryArray objectAtIndex:indexPath.row];
+    NSDictionary *sectionDic = [_secondCategoryArray objectAtIndex:indexPath.row];
+    if (!cell) {
+        if (indexPath.row == 0) {
+            cell = [[CategoryCell alloc] initWithSpecialTitle:sectionDic[@"value"] image:sectionDic[@"pic_url"]];
+        } else {
+            NSDictionary *cellDic = [_secondCategoryArray objectAtIndex:indexPath.row];
+            cell = [[CategoryCell alloc] initWithTitle:cellDic[@"title"] content:cellDic[@"typeAttr"] pic_url:cellDic[@"pic_url"]];
+            cell.arrowsButton.hidden = YES;
+        }
+    }
+    return cell;
+}
+#pragma mark Cell被点击时
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    
+    TProductListController *productListController = [[TProductListController alloc]initWithNavigationTitle:@""];
+    [self.navigationController pushViewController:productListController animated:YES];
+    
+    if (indexPath.row == 0) { // 如果是促销
+        productListController.parentId = [[_categoryArray objectAtIndex:indexPath.section] objectForKey:@"ID"];
+        productListController.isSale = YES;
+    } else {    // 普通分类
+        productListController.parentId = [[_secondCategoryArray objectAtIndex:[indexPath row]] objectForKey:@"ID"];
+        productListController.isSale = NO;
+    }
+}
+
+- (void)didReceiveMemoryWarning
+{
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+@end

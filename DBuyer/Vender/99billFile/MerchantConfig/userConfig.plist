@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>index</key>
+		<string>生产环境</string>
+		<key>billPrivate</key>
+		<string>81231005399055890</string>
+		<key>billServer</key>
+		<string>mobile.99bill.com:443</string>
+		<key>mebCode</key>
+		<string>10023194082</string>
+		<key>merchantId</key>
+		<string>812310053990558</string>
+	</dict>
+	<dict>
+		<key>index</key>
+		<string>sandbox沙盒环境</string>
+		<key>billPrivate</key>
+		<string>privatetest</string>
+		<key>billServer</key>
+		<string>218.242.247.3:8441</string>
+		<key>mebCode</key>
+		<string>10012139869</string>
+		<key>merchantId</key>
+		<string>104110045110202</string>
+	</dict>
+	<dict>
+		<key>index</key>
+		<string>集成开发环境</string>
+		<key>billPrivate</key>
+		<string>privatedev</string>
+		<key>billServer</key>
+		<string>218.242.247.11:8441</string>
+		<key>mebCode</key>
+		<string>10011548156</string>
+		<key>merchantId</key>
+		<string>999923124421312</string>
+	</dict>
+	<dict>
+		<key>index</key>
+		<string>开发环境</string>
+		<key>billPrivate</key>
+		<string>privatetempdev</string>
+		<key>billServer</key>
+		<string>218.242.247.7:11443</string>
+		<key>mebCode</key>
+		<string>11029832128</string>
+		<key>merchantId</key>
+		<string>999002311233255</string>
+	</dict>
+</array>
+</plist>

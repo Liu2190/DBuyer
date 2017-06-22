@@ -1,0 +1,46 @@
+//
+//  ProBannerCell.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-4-28.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "ProBannerCell.h"
+
+@implementation ProBannerCell
+
+- (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
+{
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (self) {
+        // Initialization code
+    }
+    return self;
+}
+
+- (void)awakeFromNib
+{
+    // Initialization code
+    self.bannerView.userInteractionEnabled = YES;
+}
+-(void)setProBannerCellWith:(ProductDetail *)product
+{
+    NSString *imageName = product.isCollect==NO?@"134.png":@"140.png";
+    UIImage *image = [UIImage imageNamed:imageName];
+    [self.collectButton setImage:image forState:UIControlStateNormal];
+    self.collectButton.userInteractionEnabled = !product.isCollect;
+}
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated
+{
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+
+- (void)dealloc {
+    [_bannerView release];
+    [_collectButton release];
+    [super dealloc];
+}
+@end

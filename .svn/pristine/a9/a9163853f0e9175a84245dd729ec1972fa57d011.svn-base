@@ -1,0 +1,292 @@
+//
+//  TAllscoBuyerController.m
+//  DBuyer
+//
+//  Created by Dbuyer mac1 on 14-4-29.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "TAllscoBuyerController.h"
+#import "TUtilities.h"
+#import "TServerFactory.h"
+#import "TAllScoServer.h"
+#import "TMasCnpServer.h"
+#import "KQPayPlugin.h"
+#import "UPOMPXMLParser.h"
+#import "TOrderServer.h"
+
+#import "kQPayOrder.h"
+#import "KQPayPlugin.h"
+#import <openssl/ssl.h>
+#import <openssl/bio.h>
+#import <openssl/err.h>
+#import <openssl/sha.h>
+#import <openssl/rsa.h>
+#import <openssl/evp.h>
+
+@implementation TAllscoBuyerController
+
+- (id)initWithNavigationTitle:(NSString *)title andGoodsForm:(NSArray*)goodItems {
+    self = [super initWithNavigationTitle:title];
+    self.goodItems = goodItems;
+    
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    
+    CGRect rect = CGRectMake(0, 0, self.contentView.frame.size.width, self.contentView.frame.size.height);
+    _buyerFormController = [[TAllscoBuyerFormController alloc]initWithAllscoGoodsForm:self.goodItems andDelegate:self];
+    [_buyerFormController.view setFrame:rect];
+    [self.contentView addSubview:_buyerFormController.view];
+}
+
+/**
+ * 奥斯卡购买行为
+ */
+- (void)allscoBuyerByPayForm:(id)payForm {
+    _payFormObj = (TAllscoGoodPayForm*)payForm;
+
+    if (_payFormObj.phoneNum.length == NO) {
+        [[TUtilities getInstance]popMessageError:@"手机号不能为空" target:self.view delayTime:1.5];
+        return;
+    }
+    
+    if ([_payFormObj.phoneNum isMatchedByRegex:PhoneRegex] == NO) {
+        [[TUtilities getInstance]popMessageError:@"手机号格式不符合" target:self.view delayTime:1.5];
+        return;
+    }
+
+    
+    [[TUtilities getInstance]popTarget:self.view status:@"处理中..."];
+    [[TServerFactory getServerInstance:@"TAllScoServer"]doBuyerAllscoCardByAccount:_payFormObj.phoneNum
+                                                                         andAmount:_payFormObj.amount
+                                                                        andPayFlag:_payFormObj.payFlag
+                                                                      andPurchases:_payFormObj.purchases
+                                                                        andTempPurchases:_payFormObj.tempPurchases
+                                                                       andCallback:^(NSString *datas, NSString *umpData) {
+                                                                           NSLog(@"%@",umpData);
+                                                                           [[TUtilities getInstance]dismiss];
+                                                                           NSString *paraValue = datas;
+                                                                           if (_payFormObj.payFlag == 0) {
+                                                                               paraValue = umpData;
+                                                                           }
+                                                                           
+                                                                           [self openPayView:paraValue andGoodForm:_payFormObj];
+                                                                       } failureCallback:^(NSString *resp) {
+                                                                           [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.0];
+                                                                       }];
+}
+
+/**
+ * 跳转支付界面
+ */
+- (void)openPayView:(NSString*)datas andGoodForm:(TAllscoGoodPayForm*)payForm{
+    if (payForm.payFlag == 0) { // 银联支付
+        [self doUPOMPPay:datas];
+    } else if (payForm.payFlag == 1) {
+        [self doKQPay:datas and:[NSString stringWithFormat:@"%i",payForm.amount]];
+    }
+}
+
+/**
+ * 银行支付
+ */
+- (void)doUPOMPPay:(NSString*)reportText {
+    UPOMP *upomp = [[UPOMP alloc] initUPOMPWithXML:reportText ServerType:ServerProduct];
+    upomp.UPOMPDelegate = self;
+    [self presentViewController:upomp animated:YES completion:nil];
+}
+
+/**
+ * 快钱支付
+ */
+- (void)doKQPay:(NSString*)kq_orderValue and:(NSString*)paidAmount {
+    [[TUtilities getInstance]popTarget:self.contentView status:@"处理中..."];
+    [[TServerFactory getServerInstance:@"TMasCnpServer"]requestPaidDataByOrderId:kq_orderValue
+                                                                  andOrderAmount:paidAmount
+                                                                     andCallback:^(TKQPayInfo *payInfo) {
+                                                                         [[TUtilities getInstance]dismiss];
+                                                                         kqOrderString = payInfo.orderId;
+                                                                         [self senderPaidParameter:payInfo];
+                                                                     } failureCallback:^(NSString *resp) {
+                                                                         [[TUtilities getInstance]popMessageError:resp target:self.contentView delayTime:1.0];
+                                                                     }];
+}
+
+/**
+ * 银联支付回调方法
+ * 调用XMLParser类进行解析
+ */
+- (void)closeUPOMPWithXMLString:(NSString *)xmlString {
+    UPOMPXMLParser *xmlParser = [[UPOMPXMLParser alloc] init];
+    NSData *_xmlStrData = [xmlString dataUsingEncoding:NSUTF8StringEncoding];
+    NSDictionary *xmlDictionary = [[NSDictionary alloc]initWithDictionary:[xmlParser parserXML:_xmlStrData]];
+    
+    if ([xmlDictionary count] > 0) { // 成功
+        NSString * respCode = [xmlDictionary objectForKey:@"respCode"];
+        if ([respCode isEqualToString:@"0000"]) [self paySuccess];
+        else [self payFaile];
+    }
+}
+
+/**
+ * 支付成功
+ */
+- (void)paySuccess {
+    [[TUtilities getInstance]popMessage:@"支付成功" target:self.view delayTime:2.0];
+    [self performSelector:@selector(doPaySuccess) withObject:nil afterDelay:2.0];
+}
+
+- (void)doPaySuccess {
+    [self.navigationController popViewControllerAnimated:YES];
+    [[NSNotificationCenter defaultCenter]postNotificationName:@"Notification_ChargeSuccess" object:self userInfo:nil];
+}
+
+/**
+ * 支付失败
+ */
+- (void)payFaile {
+    [[TUtilities getInstance]popMessageError:@"支付失败" target:self.view delayTime:2.0];
+}
+
+/**
+ * 快钱支付回调
+ */
+-(void)payResult:(KQ_PayResult)result selfController:(UINavigationController*)controller {
+    switch (result) {
+        case KQ_PayFaild:
+            [self payFaile];
+            break;
+        case KQ_PaySucceed:
+            /*支付成功后的回调，向后台发送订单支付成功指令*/
+            [[TUtilities getInstance]popTarget:self.contentView status:@"支付成功,更新订单状态"];
+            [[TServerFactory getServerInstance:@"TOrderServer"]doOrderSuccessForBuyer:kqOrderString andParameter:_payFormObj
+                                                                     callback:^(NSString *ret) {
+                                                                         [[TUtilities getInstance]dismiss];
+                                                                         [self paySuccess];
+                                                                     } failureCallback:^(NSString *resp) {
+                                                                         [[TUtilities getInstance]popMessageError:resp target:self.contentView delayTime:2.0];
+                                                                     }];
+            break;
+            
+        default:
+            break;
+    }
+}
+
+
+
+/**
+ * 发送快钱支付
+ */
+- (void)senderPaidParameter:(TKQPayInfo*)payInfo {
+    [[TUtilities getInstance]setControlAppVar:YES]; // 打开更新开关，让个人中心页做一次刷新
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSArray *configArray = [NSArray arrayWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"userConfig" ofType:@"plist"]];
+	NSDictionary *config = (NSDictionary *)[configArray objectAtIndex:0];
+    
+    kQPayOrder = [[KQPayOrder alloc] init];
+    [kQPayOrder setOrderId:payInfo.orderId];
+    [kQPayOrder setAmt:[NSString stringWithFormat:@"%@",payInfo.orderAmount]];
+    [kQPayOrder setMerchantName:@"尚鳞科技"];
+    [kQPayOrder setProductName:payInfo.goodName];
+    [kQPayOrder setUnitPrice:@"59"];
+    [kQPayOrder setTotal:payInfo.productNum];
+    [kQPayOrder setMerchantOrderTime:payInfo.orderTime];
+    [[KQPayPlugin Instance] setKqPayorder:kQPayOrder];
+    
+    /* 如传递卡信息 需调用 */
+    [[KQPayPlugin Instance] UserCardInfo:@"" //银行卡号  全卡号或短卡号(已绑定卡前6后4)（非必须）
+                                cardType:@"" //银行卡类型（非必须）
+                                  bankId:@"" //银行Id（非必须）
+     ];
+    
+    [[KQPayPlugin Instance] Pay:self
+                       PayOrder:kQPayOrder
+                      OrderSign:[self generateOrderSign]
+                      QuerySign:[self generateQuerySign:payInfo.payerId]
+                        MebCode:[config objectForKey:@"mebCode"]
+                     MerchantId:[config objectForKey:@"merchantId"]
+                  PartnerUserId:payInfo.payerId
+                            URL:[config objectForKey:@"billServer"]];
+    
+	[pool release];
+}
+
+/**
+ * 生成QuerySign
+ */
+- (NSString *)generateQuerySign:(NSString*)userId {
+    
+	NSArray *configArray = [NSArray arrayWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"userConfig" ofType:@"plist"]];
+	NSDictionary *config = (NSDictionary *)[configArray objectAtIndex:0];
+    
+    unsigned char sigret[512] = {0};
+    FILE *fp = fopen([[[NSBundle mainBundle] pathForResource:[config objectForKey:@"billPrivate"] ofType:@"pem"] cStringUsingEncoding:NSUTF8StringEncoding],"r");
+    EVP_PKEY *pKey = PEM_read_PrivateKey(fp, NULL, NULL, NULL);
+    fclose(fp);
+    
+    EVP_MD_CTX ctx;
+    EVP_MD_CTX_init(&ctx);
+    EVP_SignInit_ex(&ctx, EVP_sha1(), NULL);
+    
+    //订单参数
+    NSString *queryInfo  =  [[KQPayPlugin Instance] GenerateCardQuerySign:[config objectForKey:@"mebCode"] MerchantId:[config objectForKey:@"merchantId"] PartnerUserId:userId];
+    //
+    EVP_SignUpdate(&ctx, [queryInfo UTF8String], strlen([queryInfo UTF8String]));
+    
+    unsigned int siglen = EVP_PKEY_size(pKey);
+    EVP_SignFinal(&ctx, sigret, &siglen, pKey);
+    EVP_MD_CTX_cleanup(&ctx);
+    EVP_PKEY_free(pKey);
+    
+    char out[1024] = {0};
+    EVP_EncodeBlock((unsigned char*)out, sigret, siglen);
+    
+    return [NSString stringWithFormat:@"%s",out];
+}
+
+
+/**
+ * 生成OrderSign
+ */
+- (NSString *)generateOrderSign {
+	NSArray *configArray = [NSArray arrayWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"userConfig" ofType:@"plist"]];
+	NSDictionary *config = (NSDictionary *)[configArray objectAtIndex:0];
+    
+    unsigned char sigret[512] = {0};
+    FILE *fp = fopen([[[NSBundle mainBundle] pathForResource:[config objectForKey:@"billPrivate"] ofType:@"pem"] cStringUsingEncoding:NSUTF8StringEncoding],"r");
+    EVP_PKEY *pKey = PEM_read_PrivateKey(fp, NULL, NULL, NULL);
+    fclose(fp);
+    EVP_MD_CTX ctx;
+    EVP_MD_CTX_init(&ctx);
+    EVP_SignInit_ex(&ctx, EVP_sha1(), NULL);
+    
+    //订单参数
+    NSString *orderInfo  =  [[KQPayPlugin Instance] GenerateOrderSignSrc];
+    //
+    EVP_SignUpdate(&ctx, [orderInfo UTF8String], strlen([orderInfo UTF8String]));
+    unsigned int siglen = EVP_PKEY_size(pKey);
+    EVP_SignFinal(&ctx, sigret, &siglen, pKey);
+    EVP_MD_CTX_cleanup(&ctx);
+    EVP_PKEY_free(pKey);
+    
+    char out[1024] = {0};
+    EVP_EncodeBlock((unsigned char*)out, sigret, siglen);
+    
+    return [NSString stringWithFormat:@"%s",out];
+}
+
+
+
+- (void)dealloc {
+    [super dealloc];
+    
+    [_buyerFormController release];
+    _buyerFormController = nil;
+}
+
+
+@end

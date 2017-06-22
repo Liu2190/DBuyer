@@ -1,0 +1,253 @@
+//
+//  TProductServer.m
+//  DBuyer
+//
+//  Created by Dbuyer mac1 on 14-4-26.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "TProductServer.h"
+#import "Product.h"
+
+@implementation TProductServer
+
+- (void)doGetAClassGoodsCallback:(void(^)(NSArray *datas))callback
+                 failureCallback:(void(^)(NSString *resp))failureCallback
+{
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:queryCommodityClas,serviceHost]];
+    ASIFormDataRequest *item = [[ASIFormDataRequest alloc] initWithURL:url];
+    NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",nil];
+    for(NSString *key in [dict allKeys])
+    {
+        [item setPostValue:[dict objectForKey:key] forKey:key];
+    }
+    NSArray *objects = @[[[callback copy] autorelease], [[failureCallback copy] autorelease]];
+    NSArray *keys = @[kCompleteCallback, kFailureCallback];
+    NSMutableDictionary *requestInfo = [NSMutableDictionary dictionaryWithObjects:objects forKeys:keys];
+    [requestInfo addEntriesFromDictionary:[[NSDictionary alloc]initWithObjectsAndKeys:[NSNumber numberWithInt:DoGetAClassGoodsRequest],USER_INFO_KEY_TYPE, nil]];
+    [item setUserInfo:requestInfo];
+    [self.requestQueue addOperation:item];
+    [self start];
+    [item release];
+}
+-(void)doGetSecondClassGoodsBy:(NSString *)cid andCallback:(void(^)(NSArray *datas))callback
+               failureCallback:(void(^)(NSString *resp))failureCallback
+{
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@interface/commidty/queryCommodityClasT",serviceHost]];
+    ASIFormDataRequest *item = [[ASIFormDataRequest alloc] initWithURL:url];
+    NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",nil];
+    for(NSString *key in [dict allKeys])
+    {
+        [item setPostValue:[dict objectForKey:key] forKey:key];
+    }
+    [item setPostValue:cid forKey:@"cid"];
+    NSArray *objects = @[[[callback copy] autorelease], [[failureCallback copy] autorelease]];
+    NSArray *keys = @[kCompleteCallback, kFailureCallback];
+    NSMutableDictionary *requestInfo = [NSMutableDictionary dictionaryWithObjects:objects forKeys:keys];
+    [requestInfo addEntriesFromDictionary:[[NSDictionary alloc]initWithObjectsAndKeys:[NSNumber numberWithInt:DoGetSecondClassGoodsRequest],USER_INFO_KEY_TYPE, nil]];
+    [item setUserInfo:requestInfo];
+    [self.requestQueue addOperation:item];
+    [self start];
+    [item release];
+    
+}
+- (void)doGetProductList:(NSString*)classId andPageNum:(int)pageNum andSortType:(Product_SortType)sortType
+               andIsSale:(BOOL)isSale andPriceAsc:(BOOL)isAsc andCallback:(void(^)(NSArray *datas,int pageTotal))callback
+         failureCallback:(void(^)(NSString *resp))failureCallback {
+    
+    // #define  sanjifenlei @"%@interface/commodity/goodsListInfo?cid=%@&sort_by=%@&sort_type=%@&page=%d" //分类三列表
+    NSString *uri = @"interface/commodity/goodsListInfo";
+    NSString *parentIDKey = @"cid";
+    NSString *sort_by = @"";
+    NSString *sort_type = @"";
+    
+    if (isSale) { //#define kCuxiaoList @"%@interface/commidty/queryPromotional?classId=%@&sort_by=%@&sort_type=%@&page=%d"//促销专场
+        uri = @"interface/commidty/queryPromotional";
+        parentIDKey = @"classId";
+    }
+    /*
+     sortFlaf = @"";
+     descFlag = @"";
+     
+     }else if (sortType == 1) {
+     sortFlaf = @"sales";
+     descFlag = @"desc";
+     }else if (sortType == 2){
+     sortFlaf = @"sellPrice";
+     descFlag = @"desc";
+     }else if (sortType == 3){
+     
+     sortFlaf = @"sellPrice";
+     descFlag = @"asc";
+     */
+    if (sortType == newType) {
+        sort_by = @"";
+        sort_type = @"";
+    } else if (sortType == SaleType) {
+        sort_by = @"sales";
+        sort_type = @"desc";
+    } else if (sortType == PriceType) {
+        if (isAsc) {
+            sort_type = @"asc";
+        } else {
+            sort_type = @"desc";
+        }
+        
+        sort_by = @"sellPrice";
+    }
+
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@%@",serviceHost,uri]];
+    ASIFormDataRequest *item = [[ASIFormDataRequest alloc] initWithURL:url];
+    NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",nil];
+    for(NSString *key in [dict allKeys])
+    {
+        [item setPostValue:[dict objectForKey:key] forKey:key];
+    }
+    [item setPostValue:classId forKey:parentIDKey];
+    [item setPostValue:[NSString stringWithFormat:@"%i",pageNum] forKey:@"page"];
+    [item setPostValue:sort_by forKey:@"sort_by"];
+    [item setPostValue:sort_type forKey:@"sort_type"];
+    
+    NSArray *objects = @[[[callback copy] autorelease], [[failureCallback copy] autorelease]];
+    NSArray *keys = @[kCompleteCallback, kFailureCallback];
+    NSMutableDictionary *requestInfo = [NSMutableDictionary dictionaryWithObjects:objects forKeys:keys];
+    
+    [requestInfo addEntriesFromDictionary:[[NSDictionary alloc]initWithObjectsAndKeys:[NSNumber numberWithInt:DoGetProductListRequest],USER_INFO_KEY_TYPE, nil]];
+    
+    [item setUserInfo:requestInfo];
+    [self.requestQueue addOperation:item];
+    [self start];
+    [item release];
+}
+
+- (void)doGetProductDetailById:(NSString *)commitId
+                   andCallback:(void (^)(NSDictionary *))callback failureCallback:(void (^)(NSString *))failureCallback {
+    
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@interface/commidty/allGoogsInfo",serviceHost]];
+    ASIFormDataRequest *item = [[ASIFormDataRequest alloc] initWithURL:url];
+    NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",nil];
+    for(NSString *key in [dict allKeys])
+    {
+        [item setPostValue:[dict objectForKey:key] forKey:key];
+    }
+    [item setPostValue:commitId forKey:@"commodityId"];
+    NSArray *objects = @[[[callback copy] autorelease], [[failureCallback copy] autorelease]];
+    NSArray *keys = @[kCompleteCallback, kFailureCallback];
+    NSMutableDictionary *requestInfo = [NSMutableDictionary dictionaryWithObjects:objects forKeys:keys];
+    [requestInfo addEntriesFromDictionary:[[NSDictionary alloc]initWithObjectsAndKeys:[NSNumber numberWithInt:DoGetProductDetailRequest],USER_INFO_KEY_TYPE, nil]];
+    [item setUserInfo:requestInfo];
+    [self.requestQueue addOperation:item];
+    [self start];
+    [item release];
+}
+
+- (void)requestFinished:(ASIHTTPRequest *)request {
+    [super requestFinished:request];
+    NSDictionary *requestDictionary = [request userInfo];
+    NSDictionary *packData = [requestDictionary objectForKey:@"packedData"];
+    
+    
+    
+    if ([[requestDictionary objectForKey:USER_INFO_KEY_TYPE]floatValue] == DoGetProductListRequest) {
+        if ([[packData objectForKey:@"status"]intValue] != 0) {
+            NSString *error = [packData objectForKey:@"msg"];
+            id failureCallback  = [requestDictionary objectForKey:kFailureCallback];
+            ((void(^)(NSString *))failureCallback)(error);
+            
+            return;
+        }
+        NSMutableArray *productDatas = [[NSMutableArray alloc]init];
+        NSArray *productList = [packData objectForKey:@"returnlist"];
+        NSArray *list2 = [packData objectForKey:@"goods_list"];
+        int pageTotal = [[packData objectForKey:@"page_count"]intValue];
+        if([productList count]!=0)
+        {
+            for (NSDictionary *dict in productList) {
+                Product *product = [[Product alloc]initWithJsonDictionary:dict];
+                [productDatas addObject:product];
+                [product release];
+            }
+        }
+        if([list2 count]!=0)
+        {
+            for (NSDictionary *dict in list2) {
+                Product *product = [[Product alloc]initWithJsonDictionary:dict];
+                [productDatas addObject:product];
+                [product release];
+            }
+        }
+        
+        id callback  = [requestDictionary objectForKey:kCompleteCallback];
+        ((void(^)(NSArray*,int))callback)(productDatas,pageTotal);
+    }
+    
+    if ([[requestDictionary objectForKey:USER_INFO_KEY_TYPE]floatValue] == DoGetProductDetailRequest) {
+        if ([[[packData objectForKey:@"mapinfo"] objectForKey:@"status"]intValue] != 0) {
+            NSString *error = [[packData objectForKey:@"mapinfo"] objectForKey:@"msg"];
+            id failureCallback  = [requestDictionary objectForKey:kFailureCallback];
+            ((void(^)(NSString *))failureCallback)(error);
+            return;
+        }
+        id callback  = [requestDictionary objectForKey:kCompleteCallback];
+        ((void(^)(NSDictionary*))callback)(packData);
+    }
+
+    if ([[requestDictionary objectForKey:USER_INFO_KEY_TYPE]floatValue] == DoGetAClassGoodsRequest) {
+        if ([[packData objectForKey:@"status"]intValue] != 0) {
+            NSString *error = [packData objectForKey:@"msg"];
+            id failureCallback  = [requestDictionary objectForKey:kFailureCallback];
+            ((void(^)(NSString *))failureCallback)(error);
+            return;
+        }
+        NSMutableArray *dataArray = [[NSMutableArray alloc]initWithArray:[packData objectForKey:@"class_list"]];
+        
+        id callback  = [requestDictionary objectForKey:kCompleteCallback];
+        ((void(^)(NSArray*))callback)(dataArray);
+    }
+    if ([[requestDictionary objectForKey:USER_INFO_KEY_TYPE]floatValue] == DoGetSecondClassGoodsRequest) {
+        if ([[packData objectForKey:@"status"]intValue] != 0) {
+            NSString *error = [packData  objectForKey:@"msg"];
+            id failureCallback  = [requestDictionary objectForKey:kFailureCallback];
+            ((void(^)(NSString *))failureCallback)(error);
+            return;
+        }
+        NSMutableArray *dataArray = [[NSMutableArray alloc]initWithArray:[packData objectForKey:@"class_list"]];
+        id callback  = [requestDictionary objectForKey:kCompleteCallback];
+        ((void(^)(NSArray*))callback)(dataArray);
+    }
+    if ([[requestDictionary objectForKey:USER_INFO_KEY_TYPE]floatValue] == DoGetPromotionProductRequest) {
+        if ([[packData objectForKey:@"status"]intValue] != 0) {
+            NSString *error = [packData  objectForKey:@"msg"];
+            id failureCallback  = [requestDictionary objectForKey:kFailureCallback];
+            ((void(^)(NSString *))failureCallback)(error);
+            return;
+        }
+        id callback  = [requestDictionary objectForKey:kCompleteCallback];
+        ((void(^)(NSDictionary*))callback)(packData);
+    }
+    
+
+}
+-(void)doGetPromotionalProductByID:(NSString*)commitId AndCategoryID:(NSString *)categoryID andCallback:(void(^)(NSDictionary *datas))callback
+                   failureCallback:(void(^)(NSString *resp))failureCallback
+{
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@interface/commidty/allGoogsDisInfo",serviceHost]];
+    ASIFormDataRequest *item = [[ASIFormDataRequest alloc] initWithURL:url];
+    [item setPostValue:commitId forKey:@"commodityId"];
+    [item setPostValue:@"1" forKey:@"type"];
+    [item setPostValue:categoryID forKey:@"categoryID"];
+    NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",nil];
+    for(int i = 0;i<[[dict allKeys] count];i++)
+    {
+        [item setPostValue:[[dict allValues] objectAtIndex:i] forKey:[[dict allKeys] objectAtIndex:i]];
+    }
+    NSArray *objects = @[[[callback copy] autorelease], [[failureCallback copy] autorelease]];
+    NSArray *keys = @[kCompleteCallback, kFailureCallback];
+    NSMutableDictionary *requestInfo = [NSMutableDictionary dictionaryWithObjects:objects forKeys:keys];
+    [requestInfo addEntriesFromDictionary:[[NSDictionary alloc]initWithObjectsAndKeys:[NSNumber numberWithInt:DoGetPromotionProductRequest],USER_INFO_KEY_TYPE, nil]];
+    [item setUserInfo:requestInfo];
+    [self.requestQueue addOperation:item];
+    [self start];
+    [item release];
+}
+@end

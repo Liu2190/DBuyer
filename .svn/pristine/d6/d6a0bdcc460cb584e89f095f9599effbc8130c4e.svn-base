@@ -1,0 +1,27 @@
+//
+//  PackagelistViewController.h
+//  DBuyer
+//
+//  Created by liuxiaodan on 13-11-1.
+//  Copyright (c) 2013年 liuxiaodan. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+#import "GiftCell.h"
+
+@interface PackagelistViewController : UIViewController<UITableViewDataSource,UITableViewDelegate>{
+    int pageNum;
+    int page_count;
+    NSMutableArray *boxs;
+    LoadView *thisLoad;
+    AppDelegate *mainDelegate;
+    HttpDownload *thisDownLoad;
+    BOOL isFixed;
+}
+
+@property (strong, nonatomic) NSMutableArray *boxs;
+@property (retain, nonatomic)UIButton *btn;
+@property (retain, nonatomic) UILabel *titlelabel;
+//@property (retain, nonatomic) IBOutlet UITableView *userTable;
+@property (retain,nonatomic)UITableView *userTable;
+@end

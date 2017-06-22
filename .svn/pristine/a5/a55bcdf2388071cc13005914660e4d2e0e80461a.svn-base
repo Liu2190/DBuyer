@@ -1,0 +1,643 @@
+//
+//  JiesuanViewController.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-5-9.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "JiesuanViewController.h"
+#import "StartPoint.h"
+#import "SettlementTitleCell.h"
+#import "SettlementReceiverCell.h"
+#import "SettlementModel.h"
+#import "SettlementDeliverTypeCell.h"
+#import "SettlementSepCell.h"
+#import "SettlementTakeCell.h"
+#import "SettlementProductCell.h"
+#import "SettlementPriceCell.h"
+#import "SettlementToPayView.h"
+#import "DatePickerOfSettlement.h"
+#import "DefaultAddressViewController.h"
+#import "SelectSuperMarketViewController.h"
+#import "WCAlertView.h"
+
+#import "SettleMentServer.h"
+#import "TServerFactory.h"
+#import "TUtilities.h"
+
+#import "TConfirmPaymentController.h"
+#import "TConfirmPay.h"
+
+#define ReceiverCellHeight 49.0
+#define Set_Table_Color [UIColor colorWithRed:236.0/255.0 green:235.0/255.0 blue:233.0/255.0 alpha:1];
+#define receiverSection      0
+#define deliveryTitleSection 1
+#define logisticsSection     2
+#define bySelfSection        3
+#define byselfDetailSection  4
+#define separateSection      5
+#define goodsTitleSection    6
+#define goodslistSection     7
+#define priceSection         8
+
+@interface JiesuanViewController ()<UITableViewDataSource,UITableViewDelegate,UIPickerViewDataSource,UIPickerViewDelegate>
+@property (nonatomic,retain)UITableView *tableView;
+@property (nonatomic,retain)SettlementModel *settlementItem;
+@property (nonatomic,assign)BOOL isOpen;
+@property (nonatomic,retain)SettlementToPayView *toPayView;
+@property (nonatomic,retain)DatePickerOfSettlement *datePickerView;
+
+@end
+
+@implementation JiesuanViewController
+
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
+{
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        // Custom initialization
+        self.isOpen = NO;
+        self.settlementItem = [[SettlementModel alloc]init];
+        [self.settlementItem.productlistArray removeAllObjects];
+    }
+    return self;
+}
+#pragma mark 添加到结算中心
+- (void)setSettlementWithProducts:(NSMutableArray *)productArr SeettType:(SettlementType)SettType
+{
+    [self setSettlementWithProducts:productArr SeettType:SettType GiftID:0 WithPrice:0];
+}
+- (void)setSettlementWithProducts:(NSMutableArray *)productArr SeettType:(SettlementType)SettType GiftID:(NSString *)giftId WithPrice:(float)price
+{
+    [self.settlementItem setModelWithProducts:productArr SeettType:SettType GiftID:giftId Price:price];
+}
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    // Do any additional setup after loading the view from its nib.
+    self.navigationController.navigationBarHidden =YES;             // 隐藏系统的NavigationBar
+    [self.leveyTabBarController hidesTabBar:YES animated:YES];      // 隐藏TabBar
+    [self setNavigationBarWithContent:@"结算中心" WithLeftButton:[UIImage imageNamed:@"global_back_button"] AndRightButton:nil];
+    
+    self.datePickerView = [[[NSBundle mainBundle]loadNibNamed:@"DatePickerOfSettlemment" owner:self options:nil]lastObject];
+    self.datePickerView.datePicker.delegate = self;
+    self.datePickerView.datePicker.dataSource = self;
+    self.datePickerView.frame = CGRectMake(0, WindowHeight -192-45 , 320, 192);
+    self.datePickerView.hidden = YES;
+    [self.datePickerView addTarget:self withCancelAction:@selector(cancelPickTime) AndFinishAction:@selector(finishPickTime)];
+    [self.view addSubview:self.datePickerView];
+    
+    self.tableView = [[UITableView alloc]initWithFrame:CGRectMake(0, [StartPoint startPoint], WindowWidth, WindowHeight-[StartPoint startPoint]) style:UITableViewStylePlain];
+    self.tableView.backgroundColor = Set_Table_Color;
+    self.tableView.delegate = self;
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    self.tableView.dataSource = self;
+    [self.view addSubview:self.tableView];
+    self.toPayView = [[[NSBundle mainBundle]loadNibNamed:@"SettlementToPayView" owner:self options:nil]lastObject];
+    CGRect frame = self.toPayView.frame;
+    frame.origin.x = 0;
+    frame.origin.y = WindowHeight -frame.size.height;
+    self.toPayView.frame = frame;
+    [self.toPayView.toPayButton addTarget:self action:@selector(toPayAction:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.toPayView];
+    [self setToPayViewPrice];
+    [self getDataFromNet];
+}
+-(void)getDataFromNet
+{
+    [self getDefaultAddress];//获取收货地址列表
+    [self getDeliveryMethod];//获取用户收货方式
+    [self getFreightAndTime];//获取运费以及自提时间
+    [self getDefaultMarket]; //获取自提默认超市
+}
+-(void)getFreightAndTime
+{
+    [[TServerFactory getServerInstance:@"SettleMentServer"]doGetFreightAndTimeWithProIds:self.settlementItem.productIds andCallback:^(NSDictionary *dict){
+        [[TUtilities getInstance]dismiss];
+        [self.settlementItem getFreightAndZitiTime:dict];
+        [self.tableView reloadData];
+        [self setToPayViewPrice];
+    }failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+
+}
+-(void)getDefaultMarket
+{
+    [[TServerFactory getServerInstance:@"SettleMentServer"]doGetDefaultMarketBycallback:^(NSDictionary *dict){
+        [[TUtilities getInstance]dismiss];
+        [self.settlementItem getDefaultSuperMarketArea:dict];
+        [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:byselfDetailSection] withRowAnimation:UITableViewRowAnimationNone];
+    }failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+}
+-(void)getDefaultAddress
+{
+    [[TServerFactory getServerInstance:@"SettleMentServer"] doGetDefaultAddressBycallback:^(NSDictionary *dict)
+     {
+         [[TUtilities getInstance]dismiss];
+         [self.settlementItem getDefaultAddress:dict];
+         [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:receiverSection] withRowAnimation:UITableViewRowAnimationNone];
+     }failureCallback:^(NSString *resp){
+         [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+     }];
+}
+-(void)getDeliveryMethod
+{
+    [[TUtilities getInstance]popTarget:self.view status:@"处理中..."];
+    [[TServerFactory getServerInstance:@"SettleMentServer"] doGetDeliveryMethod:self.settlementItem.productIds andCallback:^(NSDictionary *dict){
+        [[TUtilities getInstance]dismiss];
+        [self.settlementItem getDeliveryWay:dict];
+        [self.tableView reloadData];
+        [self setToPayViewPrice];
+    }failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+}
+#pragma mark 设置返回按钮
+-(void)leftButtonClick:(UIButton  *)button{
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+-(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
+{
+    return 9;
+}
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    if(section ==receiverSection)
+    {
+        return 2;
+    }
+    if(section == byselfDetailSection)
+    {
+        return self.isOpen == NO?0:1;
+    }
+    if(section == logisticsSection)
+    {
+        //物流方式
+        return self.settlementItem.isWuliuHidden == YES?0:1;
+    }
+    
+    if(section == bySelfSection)
+    {
+        //自提方式
+        return self.settlementItem.isZitiHidden == YES?0:1;
+    }
+    if(section == separateSection)
+    {
+        //自提方式下面的分割线
+        return self.settlementItem.isZitiHidden == YES?0:1;
+    }
+    if(section == goodslistSection)
+    {
+        return self.settlementItem.productlistArray.count;
+    }
+    return 1;
+}
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if(indexPath.section == receiverSection)
+    {
+        return indexPath.row == 0?30:([SettlementReceiverCell cellHeightWith:self.settlementItem.addressItem.address]);
+    }
+    if(indexPath.section == deliveryTitleSection)
+    {
+        return 30;
+    }
+    if(indexPath.section == logisticsSection)
+    {
+        return 40;
+    }
+    if(indexPath.section == bySelfSection)
+    {
+        return 32;
+    }
+    if(indexPath.section == byselfDetailSection)
+    {
+        return 127;
+    }
+    if(indexPath.section == separateSection)
+    {
+        return 8;
+    }
+    if(indexPath.section == goodsTitleSection)
+    {
+        return 30;
+    }
+    if(indexPath.section == goodslistSection)
+    {
+        return 82;
+    }
+    if(indexPath.section == priceSection)
+    {
+        return 260;
+    }
+    return 50;
+}
+-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    static NSString *identifier = @"cell";
+    if(indexPath.section == receiverSection)
+    {
+        if(indexPath.row == 0)
+        {
+            SettlementTitleCell *titleCell = [tableView dequeueReusableCellWithIdentifier:identifier];
+            if(titleCell == nil)
+            {
+                titleCell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementTitleCell" owner:self options:nil]lastObject];
+            }
+            titleCell.sepLine.hidden = YES;
+            titleCell.titleLabel.text = @"收货人";
+            return titleCell;
+        }
+        if(indexPath.row == 1)
+        {
+             SettlementReceiverCell *receiverCell = [tableView dequeueReusableCellWithIdentifier:identifier];
+            if(receiverCell == nil)
+            {
+                receiverCell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementReceiverCell" owner:self options:nil]lastObject];
+            }
+            [receiverCell setCellValueWith:self.settlementItem.addressItem];
+            return receiverCell;
+        }
+    }else if (indexPath.section == deliveryTitleSection)
+    {
+        SettlementTitleCell *titleCell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(titleCell == nil)
+        {
+            titleCell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementTitleCell" owner:self options:nil]lastObject];
+        }
+        titleCell.titleLabel.text = @"配送方式";
+        return titleCell;
+    }else if (indexPath.section == logisticsSection)
+    {
+        SettlementDeliverTypeCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(cell == nil)
+        {
+            cell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementDeliverTypeCell" owner:self options:nil]lastObject];
+        }
+        cell.name.text = @"第三方快递";
+        [cell setButtonValueWith:self.settlementItem.logisticsStatus];
+        [cell.button addTarget:self action:@selector(wuliuAction:) forControlEvents:UIControlEventTouchUpInside];
+        return cell;
+    }
+    else if (indexPath.section == bySelfSection)
+    {
+        SettlementDeliverTypeCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(cell == nil)
+        {
+            cell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementDeliverTypeCell" owner:self options:nil]lastObject];
+        }
+        cell.name.text = @"自提";
+        [cell setButtonValueWith:!self.settlementItem.logisticsStatus];
+        [cell.button addTarget:self action:@selector(zitiAction:) forControlEvents:UIControlEventTouchUpInside];
+        return cell;
+    }
+    else if (indexPath.section == byselfDetailSection)
+    {
+        SettlementTakeCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(cell == nil)
+        {
+            cell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementTakeCell" owner:self options:nil]lastObject];
+        }
+        [cell setSettlementExtractCellWithMarket:self.settlementItem.zitiAreaItem];
+        cell.timeLabel.text = self.settlementItem.takeBySelfTime;
+        [cell.nameButton addTarget:self action:@selector(chooseSuperMarket:) forControlEvents:UIControlEventTouchUpInside];
+        [cell.timeButton addTarget:self action:@selector(chooseZitiTime) forControlEvents:UIControlEventTouchUpInside];
+        return cell;
+    }
+    else if (indexPath.section == separateSection)
+    {
+        SettlementSepCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(cell == nil)
+        {
+            cell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementSepCell" owner:self options:nil]lastObject];
+        }
+        return cell;
+    }
+    else if(indexPath.section == goodsTitleSection)
+    {
+        SettlementTitleCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(cell == nil)
+        {
+            cell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementTitleCell" owner:self options:nil]lastObject];
+        }
+        cell.titleLabel.text = @"商品清单";
+        cell.bottomLine.hidden = NO;
+        cell.sepLine.hidden = YES;
+        return cell;
+    }
+    else if (indexPath.section == goodslistSection)
+    {
+        SettlementProductCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(cell == nil)
+        {
+            cell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementProductCell" owner:self options:nil] lastObject];
+        }
+        [cell setCellValueWith:[self.settlementItem.productlistArray objectAtIndex:indexPath.row]];
+        return cell;
+    }
+    else if (indexPath.section == priceSection)
+    {
+        SettlementPriceCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
+        if(cell == nil)
+        {
+            cell = [[[NSBundle mainBundle]loadNibNamed:@"SettlementPriceCell" owner:self options:nil]lastObject];
+        }
+        cell.totalPrice.text = [NSString stringWithFormat:@"￥%.2f",self.settlementItem.totalPrice];
+        float frieght = self.settlementItem.logisticsStatus == YES?self.settlementItem.freight:0;
+        cell.freight.text = [NSString stringWithFormat:@"￥%.2f",frieght];
+        return cell;
+    }
+    return nil;
+}
+
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if(indexPath.section == receiverSection)
+    {
+        if(indexPath.row == 1)
+        {
+            //进入修改地址页面
+              DefaultAddressViewController *defaultAddressVC = [[DefaultAddressViewController alloc] initWithNibName:@"DefaultAddressViewController" bundle:nil];
+                [defaultAddressVC addTarget:self action:@selector(editAddressAction:)];
+                [self.navigationController pushViewController:defaultAddressVC animated:YES];
+
+        }
+    }
+    if(indexPath.section == goodslistSection)
+    {
+        //进入商品详情页面
+    }
+}
+#pragma mark 地址编辑完回来的事件
+- (void)editAddressAction:(AddressItem *)sender
+{
+    if (![sender.addressId isEqualToString:@""]) {
+        self.settlementItem.addressItem = sender;
+        [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:receiverSection] withRowAnimation:UITableViewRowAnimationNone];
+    }
+}
+-(void)wuliuAction:(UIButton *)button
+{
+    self.settlementItem.logisticsStatus = !self.settlementItem.logisticsStatus;
+    self.isOpen = NO;
+    [self.tableView reloadData];
+    [self setToPayViewPrice];
+}
+-(void)zitiAction:(UIButton *)button
+{
+    self.settlementItem.logisticsStatus = !self.settlementItem.logisticsStatus;
+    self.isOpen = YES;
+    [self.tableView reloadData];
+    [self setToPayViewPrice];
+}
+
+#pragma mark pickerView代理方法
+- (NSInteger)numberOfComponentsInPickerView:(UIPickerView *)pickerView
+{
+    return 2;
+}
+- (NSInteger)pickerView:(UIPickerView *)pickerView numberOfRowsInComponent:(NSInteger)component
+{
+    if (component == 0) { // 第0列
+        return 3;
+    } else {
+        if([pickerView selectedRowInComponent:0]==0)
+        {
+            NSArray *array = [[self.settlementItem.zitiDict objectForKey:@"Row"] objectAtIndex:[pickerView selectedRowInComponent:0]];
+            return [array count];
+        }
+        return 5;
+    }
+}
+- (NSString *)pickerView:(UIPickerView *)pickerView titleForRow:(NSInteger)row forComponent:(NSInteger)component
+{
+    if (component == 0) { // 第0列
+        return [[self.settlementItem.zitiDict objectForKey:@"Component"] objectAtIndex:row];
+        } else {
+            if([pickerView selectedRowInComponent:0]==0)
+            {
+               return   [[[self.settlementItem.zitiDict objectForKey:@"Row"] objectAtIndex:[pickerView selectedRowInComponent:0]] objectAtIndex:row];
+            }
+            return [self.settlementItem.exDateHourArray objectAtIndex:row];
+    }
+}
+- (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component
+{
+    [pickerView reloadComponent:1];
+}
+-(void)finishPickTime
+{
+    //完成选择自提时间
+    NSString *dayString = [self pickerView:self.datePickerView.datePicker titleForRow:[self.datePickerView.datePicker selectedRowInComponent:0] forComponent:0];
+    NSString *hourString = [self pickerView:self.datePickerView.datePicker titleForRow:[self.datePickerView.datePicker selectedRowInComponent:1] forComponent:1];
+    self.settlementItem.takeBySelfTime = [NSMutableString stringWithFormat:@"%@ %@",dayString,hourString];
+    self.datePickerView.hidden = YES;
+    self.tableView.scrollEnabled = YES;
+    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:byselfDetailSection] withRowAnimation:UITableViewRowAnimationNone];
+}
+-(void)cancelPickTime
+{
+    //取消选择自提时间
+    self.datePickerView.hidden = YES;
+    self.tableView.scrollEnabled = YES;
+}
+#pragma mark 设置点击超市按钮回调
+-(void)chooseSuperMarket:(UIButton *)button
+{
+    SelectSuperMarketViewController *selectVC = [[SelectSuperMarketViewController alloc] init];
+    [selectVC addTarget:self Action:@selector(returnSelectedMarket:)];
+    [self.navigationController pushViewController:selectVC animated:YES];
+}
+#pragma mark 选择超市的代理方法
+- (void)returnSelectedMarket:(SqliteMarketObject *)market
+{
+    self.settlementItem.zitiAreaItem = market;
+    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:byselfDetailSection] withRowAnimation:UITableViewRowAnimationNone];
+}
+-(void)chooseZitiTime
+{
+    self.datePickerView.hidden = NO;
+    self.tableView.scrollEnabled = NO;
+    [self.view bringSubviewToFront:self.datePickerView];
+    [self.datePickerView.datePicker reloadAllComponents];
+}
+-(void)setToPayViewPrice
+{
+    if(self.settlementItem.logisticsStatus)
+    {
+        self.toPayView.price.text = [NSString stringWithFormat:@"￥%.2f",self.settlementItem.totalPrice + self.settlementItem.freight-self.settlementItem.reducePrice];
+    }
+    else
+    {
+       self.toPayView.price.text = [NSString stringWithFormat:@"￥%.2f",self.settlementItem.totalPrice - self.settlementItem.reducePrice];
+    }
+}
+-(void)toPayAction:(UIButton *)button
+{
+    if ([self.settlementItem.addressItem.address length] == 0 ||self.settlementItem.addressItem ==nil || [self.settlementItem.addressItem.name length] == 0 ||[self.settlementItem.addressItem.phoneNumber length] == 0) {
+        UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"提示信息" message:@"请完善收货人信息" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil, nil];
+        [alertView show];
+        return;
+    }
+    if (self.settlementItem.logisticsStatus) {
+        
+        // 是否有物流费用
+        if (self.settlementItem.freight == 0) {
+            [WCAlertView showAlertWithTitle:@"提示"message:@"物流费用获取失败，请重试。"customizationBlock:^(WCAlertView * alertView1)
+            {
+                alertView1.style=WCAlertViewStyleDefault;
+            }completionBlock:^(NSUInteger buttonIndex,WCAlertView *alertView)
+            {
+                if(buttonIndex == 0) {
+                    [[TUtilities getInstance]popTarget:self.view status:@"刷新中......"];
+                    [self getFreightAndTime];
+                }
+            }cancelButtonTitle:@"确定"otherButtonTitles:nil,nil];
+            return;
+        }
+    }
+    if (!self.settlementItem.logisticsStatus) {
+        // 开始判断必填条件（超市ID）
+        if ([self.settlementItem.zitiAreaItem.marketId length]==0 || [self.settlementItem.zitiAreaItem.marketId length]==0) {
+            UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"提示信息" message:@"请设置自提超市" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil, nil];
+            [alertView show];
+            return;
+        }
+    }
+
+    switch (self.settlementItem.setType) {
+        case 0:
+        {
+            [self packageSettlement];
+        }
+            break;
+        case 1:
+        {
+            [self productSettlement];
+        }
+            break;
+        case 2:
+        {
+            [self cartSettlement];
+        }
+            break;
+        default:
+            break;
+    }
+}
+-(void)packageSettlement
+{
+    [[TUtilities getInstance]popTarget:self.view status:@"处理中..."];
+    [[TServerFactory getServerInstance:@"SettleMentServer"] submitPackageTypeSettlementWith:self.settlementItem andCallback:^(NSDictionary *dict){
+        [[TUtilities getInstance]dismiss];
+        NSArray *paywayList = [dict objectForKey:@"wayList"];
+        if (paywayList == nil && paywayList.count == 0) {
+            paywayList = [self generatePayWayList];
+        }
+        NSInteger states =[[dict objectForKey:@"status"] intValue];
+        if(states==0){
+            NSString *orderIdList = [[[dict objectForKey:@"result"] objectAtIndex:0] objectForKey:@"ID"];;
+            NSString *paidAmount = [[[dict objectForKey:@"result"] objectAtIndex:0] objectForKey:@"amountPayable"];
+            TConfirmPay *confirmPay = [[TConfirmPay alloc]init];
+            confirmPay.orderIdList = orderIdList;
+            confirmPay.paidAmount = [NSString stringWithFormat:@"%@",paidAmount];
+            confirmPay.payWays = paywayList;
+            confirmPay.integral = [[[dict objectForKey:@"result"] objectAtIndex:0]objectForKey:@"integral"];
+            TConfirmPaymentController *conVC = [[TConfirmPaymentController alloc]initWithNavigationTitle:@"支付方式" andConfirPay:confirmPay];
+            [self.navigationController pushViewController:conVC animated:YES];
+            [conVC release];
+            
+            [[NSNotificationCenter defaultCenter]postNotificationName:@"Notification_DbuyerLoginSucess" object:nil userInfo:dict];
+        }
+    }failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+
+}
+-(void)productSettlement
+{
+    [[TUtilities getInstance]popTarget:self.view status:@"处理中..."];
+    [[TServerFactory getServerInstance:@"SettleMentServer"] submitProductDetailTypeSettlementWith:self.settlementItem andCallback:^(NSDictionary *dict){
+        [[TUtilities getInstance]dismiss];
+        NSArray *paywayList = [dict objectForKey:@"wayList"];
+        if (paywayList == nil && paywayList.count == 0) {
+            paywayList = [self generatePayWayList];
+        }
+        NSInteger states =[[dict objectForKey:@"status"] intValue];
+        if(states==0){
+            NSString *orderIdList = [[[dict objectForKey:@"result"] objectAtIndex:0] objectForKey:@"ID"];;
+            NSString *paidAmount = [[[dict objectForKey:@"result"] objectAtIndex:0] objectForKey:@"amountPayable"];
+            
+            TConfirmPay *confirmPay = [[TConfirmPay alloc]init];
+            confirmPay.orderIdList = orderIdList;
+            confirmPay.payWays = paywayList;
+            confirmPay.paidAmount = [NSString stringWithFormat:@"%@",paidAmount];
+            confirmPay.integral = [[[dict objectForKey:@"result"] objectAtIndex:0]objectForKey:@"integral"];
+            TConfirmPaymentController *conVC = [[TConfirmPaymentController alloc]initWithNavigationTitle:@"支付方式" andConfirPay:confirmPay];
+            [self.navigationController pushViewController:conVC animated:YES];
+            [conVC release];
+            
+            [[NSNotificationCenter defaultCenter]postNotificationName:@"Notification_DbuyerLoginSucess" object:nil userInfo:dict];
+        }
+
+    }failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+
+}
+-(void)cartSettlement
+{
+    [[TUtilities getInstance]popTarget:self.view status:@"处理中..."];
+    [[TServerFactory getServerInstance:@"SettleMentServer"] submitShoppingCartTypeSettlementWith:self.settlementItem andCallback:^(NSDictionary *dict){
+        [[TUtilities getInstance]dismiss];
+        NSArray *paywayList = [dict objectForKey:@"wayList"];
+        if (paywayList == nil && paywayList.count == 0) {
+            paywayList = [self generatePayWayList];
+        }
+        NSInteger states =[[dict objectForKey:@"status"] intValue];
+        if(states==0){
+            //订单发送成功，跳转到支付前确认页
+            
+            NSString *orderIdList = [[[dict objectForKey:@"result"] objectAtIndex:0] objectForKey:@"ID"];;
+            NSString *paidAmount = [[[dict objectForKey:@"result"] objectAtIndex:0] objectForKey:@"amountPayable"];
+            
+            TConfirmPay *confirmPay = [[TConfirmPay alloc]init];
+            confirmPay.orderIdList = orderIdList;
+            confirmPay.payWays = paywayList;//[dict objectForKey:@"wayList"];
+            confirmPay.paidAmount = [NSString stringWithFormat:@"%@",paidAmount];
+            confirmPay.integral = [[[dict objectForKey:@"result"] objectAtIndex:0]objectForKey:@"integral"];
+            TConfirmPaymentController *conVC = [[TConfirmPaymentController alloc]initWithNavigationTitle:@"支付方式" andConfirPay:confirmPay];
+            [self.navigationController pushViewController:conVC animated:YES];
+            [conVC release];
+            
+            [[NSNotificationCenter defaultCenter]postNotificationName:@"Notification_DbuyerLoginSucess" object:nil userInfo:dict];
+        } else {
+            UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"提示信息" message:[dict objectForKey:@"msg"] delegate:self cancelButtonTitle:@"确定" otherButtonTitles:nil, nil];
+            [alertView show];
+        }
+
+    }failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+}
+- (NSMutableArray*)generatePayWayList {
+    NSMutableArray *paywayList = [[NSMutableArray alloc]init];
+    NSDictionary *umpay = @{@"cardType":@"0",@"cardName":@"(银联支付)"};
+    NSDictionary *mascnpay = @{@"cardType":@"1",@"cardName":@"(快钱支付)"};
+    NSDictionary *allsco = @{@"cardType":@"2",@"cardName":@"(预付卡支付,专享特价优惠)"};
+    [paywayList addObject:umpay];
+    [paywayList addObject:mascnpay];
+    [paywayList addObject:allsco];
+    return paywayList;
+}
+- (void)didReceiveMemoryWarning
+{
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+@end

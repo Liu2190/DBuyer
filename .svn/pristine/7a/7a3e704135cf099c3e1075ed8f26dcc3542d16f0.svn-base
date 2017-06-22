@@ -1,0 +1,112 @@
+//
+//  ProductCell.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-5-13.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "ProductCell.h"
+
+@implementation ProductCell
+
+- (void)awakeFromNib
+{
+    // Initialization code
+}
+- (void)showWithProduct:(Product *)product {
+    // 商品图片
+    [self.productImage setImageWithURL:[NSURL URLWithString:product.attrValue] placeholderImage:[UIImage imageNamed:@"placeHolerImage80"]];
+    // 显示商品名
+    self.productName.text = product.commodityName;
+    self.sellPrice.text = [NSString stringWithFormat:@"%.2f", product.sellPrice];
+    if(product.sellPrice <= product.marketPrice ||product.marketPrice == 0.0 )
+    {
+        //如果现价小于或者等于原价，不显示原价
+        self.marketPrice.hidden = YES;
+        self.deleteLine.hidden = YES;
+    }
+    else
+    {
+        self.marketPrice.hidden = NO;
+        self.deleteLine.hidden = NO;
+        self.marketPrice.text = [NSString stringWithFormat:@"￥%.2f", product.marketPrice];
+    }
+    if(!(product.productDescription==nil||product.productDescription ==NULL) &&(![product.productDescription isKindOfClass:[NSNull class]]))
+    {
+        if([product.productDescription length]!=0)
+        {
+            self.discription.text = product.productDescription;
+        }
+    }
+    
+    [self setProductKeyWord:product.keyWord];
+}
+
+// 设置显示商品keyWord
+- (void)setProductKeyWord:(NSString *)keyWord
+{
+    NSArray *tempArray = [keyWord componentsSeparatedByString:@","];//用来放置标签
+    NSMutableArray * labelArray = [NSMutableArray array];
+    // 去空格
+    for (NSString * str in tempArray) {
+        NSString * resultStr = [str stringByReplacingOccurrencesOfString:@" " withString:@""];
+        if (![resultStr isEqualToString:@""]) {
+            [labelArray addObject:resultStr];
+        }
+    }
+    if([labelArray count]==0)
+    {
+        //
+        self.bqImage1.hidden = YES;
+        self.bqImage2.hidden = YES;
+        self.bqImage3.hidden = YES;
+    }
+    if([labelArray count]==1)
+    {
+        self.bqImage1.hidden = NO;
+        self.bqImage2.hidden = YES;
+        self.bqImage3.hidden = YES;
+        self.bqLabel1.text = [labelArray lastObject];
+    }
+    if([labelArray count]==2)
+    {
+        self.bqImage1.hidden = NO;
+        self.bqImage2.hidden = NO;
+        self.bqImage3.hidden = YES;
+        self.bqLabel1.text = [labelArray firstObject];
+        self.bqLabel2.text = [labelArray lastObject];
+    }
+    if([labelArray count]==3)
+    {
+        self.bqImage1.hidden = NO;
+        self.bqImage2.hidden = NO;
+        self.bqImage3.hidden = NO;
+        self.bqLabel1.text = [labelArray firstObject];
+        self.bqLabel2.text = [labelArray lastObject];
+        self.bqLabel2.text = [labelArray objectAtIndex:1];
+    }
+}
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated
+{
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+
+- (void)dealloc {
+    [_productImage release];
+    [_productName release];
+    [_sellPrice release];
+    [_marketPrice release];
+    [_discription release];
+    [_deleteLine release];
+    [_bqImage1 release];
+    [_bqImage2 release];
+    [_bqImage3 release];
+    [_bqLabel1 release];
+    [_bqLabel2 release];
+    [_bqLabel3 release];
+    [super dealloc];
+}
+@end

@@ -1,0 +1,13 @@
+//
+//  TOrderLocalServer.h
+//  DBuyer
+//
+//  Created by dilei liu on 14-3-26.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "TBaseServer.h"
+
+@interface TOrderLocalServer : TBaseServer
+
+@end

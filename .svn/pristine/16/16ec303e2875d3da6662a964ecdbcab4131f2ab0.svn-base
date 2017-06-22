@@ -1,0 +1,43 @@
+//
+//  HomeSever.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-5-15.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "HomeSever.h"
+
+@implementation HomeSever
+-(void)doGetHomeAllThingsBycallback:(void (^)(NSDictionary *))callback failureCallback:(void (^)(NSString *))failureCallback
+{
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:dHomeAll,serviceHost]];
+    ASIFormDataRequest *item = [[ASIFormDataRequest alloc] initWithURL:url];
+    NSArray *objects = @[[[callback copy] autorelease], [[failureCallback copy] autorelease]];
+    NSArray *keys = @[kCompleteCallback, kFailureCallback];
+    NSMutableDictionary *requestInfo = [NSMutableDictionary dictionaryWithObjects:objects forKeys:keys];
+    [requestInfo addEntriesFromDictionary:[[NSDictionary alloc] initWithObjectsAndKeys:[NSNumber numberWithInt:DoGetHomeAllThingsRequest],USER_INFO_KEY_TYPE, nil]];
+    [item setUserInfo:requestInfo];
+    [self.requestQueue addOperation:item];
+    [self start];
+    [item release];
+}
+-(void)requestFinished:(ASIHTTPRequest *)request
+{
+    [super requestFinished:request];
+    NSDictionary *requestDictionary = [request userInfo];
+    NSDictionary *packData = [[NSDictionary alloc]initWithDictionary:[requestDictionary objectForKey:@"packedData"]] ;
+    if([[packData objectForKey:@"status"]intValue]!=0)
+    {
+        NSString *error = [packData objectForKey:@"msg"];
+        id failureCallback  = [requestDictionary objectForKey:kFailureCallback];
+        ((void(^)(NSString *))failureCallback)(error);
+        return;
+    }
+    if([[requestDictionary objectForKey:USER_INFO_KEY_TYPE] floatValue] == DoGetHomeAllThingsRequest)
+    {
+        id callback  = [requestDictionary objectForKey:kCompleteCallback];
+        ((void(^)(NSDictionary*))callback)(packData);
+    }
+}
+@end

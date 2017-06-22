@@ -1,0 +1,644 @@
+//
+//  ShoppingCartViewController.m
+//  DBuyer
+//
+//  Created by chenpeng on 14-1-3.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "ShoppingCartViewController.h"
+#import "ClickToBuyView.h"
+#import "ShoppingCartEmptyView.h"
+#import "ShoppingCartCell.h"
+#import "Product.h"
+#import "WCAlertView.h"
+#import "DBManager.h"
+#import "CollectViewController.h"
+#import "LoadView.h"
+#import "SettlementViewController.h"
+#import "LoginReminderView.h"
+#import "StartPoint.h"
+#import "ShoppingCartModel.h"
+#import "TLoginController.h"
+#import "ProductdetailsViewController.h"
+#import "JiesuanViewController.h"
+#import "RecommendViewController.h"
+@interface ShoppingCartViewController () <UITableViewDataSource, UITableViewDelegate, UIAlertViewDelegate,TLoginHandlerDelegate>
+@property (nonatomic,assign)float headerViewHeight;
+@property (nonatomic,assign)float footerViewHeight;
+@property (nonatomic,retain)ShoppingCartModel *thisSCModel;
+@property (nonatomic, retain) UITableView * tableView;
+// 确认购买视图
+@property (nonatomic, assign) ClickToBuyView * clickToBuyView;
+// 购物车商品列表
+@property (nonatomic, retain) NSMutableArray * productList;
+// 选中的商品列表
+@property (nonatomic, retain) NSMutableArray * selectedProdcutList;
+// 总价
+@property (nonatomic) float totalPrice;
+// 记录点击了删除按钮的cell
+@property (nonatomic) NSInteger deleteCellIndex;
+
+@property (nonatomic, retain) HttpDownload *thisDownLoad;
+@property (nonatomic,retain)LoginReminderView *lrView;
+// 记录键盘弹出时, tableView需要调整的距离
+@property (nonatomic) CGFloat distance;
+@property (nonatomic,assign)BOOL isExpand;
+@property (nonatomic,retain)UIView *tipView;
+@property (nonatomic,retain)LXD *tipLabel;
+@property (nonatomic,retain)Product *thisProduct;
+@end
+
+@implementation ShoppingCartViewController
+
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
+{
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        // Custom initialization
+        self.productList = [NSMutableArray array];
+        self.selectedProdcutList = [NSMutableArray array];
+        self.isFromHome = NO;
+        self.isExpand = NO;
+        self.thisProduct = [[Product alloc]init];
+    }
+    return self;
+}
+- (void)dealloc
+{
+    self.thisDownLoad = nil;
+    self.selectedProdcutList = nil;
+    self.productList = nil;
+    [super dealloc];
+}
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [self.leveyTabBarController hidesTabBar:self.isFromHome animated:YES];
+    if([self isAlreadyLogined])
+    {
+        [self getDataFromNet];
+        self.tableView.tableHeaderView= nil;
+    }
+    else
+    {
+        self.thisSCModel =[[ShoppingCartModel alloc]initShoppingCartModelWithDBManager];
+        self.tableView.tableHeaderView = self.lrView;
+    }
+    [self.tableView reloadData];
+}
+-(void)toLoginVC:(id)sender
+{
+    [self.leveyTabBarController hidesTabBar:YES animated:YES];
+    TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+    loginController.delegate = self;
+    UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+    [self.navigationController presentViewController:navi animated:YES completion:nil];
+}
+
+- (void)loginSuccess:(TDbuyerUser *)dbuyerUser {
+    
+}
+
+-(void)viewWillDisappear:(BOOL)animated
+{
+    [super viewWillDisappear:animated];
+    //清除商品列表
+    [self.productList removeAllObjects];
+    [self.selectedProdcutList removeAllObjects];
+    // 设置显示
+    [self.clickToBuyView setSelectAllStatus:YES];
+    [self.clickToBuyView setTotalPrice:0.0];
+    //默认全选
+    self.clickToBuyView.didSelectAll=YES;
+}
+
+-(void)viewDidAppear:(BOOL)animated
+{
+    //默认全选
+    self.clickToBuyView.didSelectAll=YES;
+    [self selectAllButtonClicked:self.clickToBuyView];
+}
+
+-(void)viewDidDisappear:(BOOL)animated
+{
+    //默认全选
+    self.clickToBuyView.didSelectAll=YES;
+    [self selectAllButtonClicked:self.clickToBuyView];
+    //[self.tableView reloadData];
+}
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    [self addLoadView];
+    self.navigationController.navigationBar.hidden = YES;
+    self.view.backgroundColor = BACKCOLOR;
+    self.tableView=[[UITableView alloc]initWithFrame:CGRectMake(0,[StartPoint startPoint], WindowWidth, WindowHeight -((self.isFromHome==YES)?0:49)-[StartPoint startPoint]) style:UITableViewStylePlain];
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    self.tableView.backgroundColor = [UIColor clearColor];
+    [self.view addSubview:self.tableView];
+    self.tableView.dataSource = self;
+    self.tableView.delegate = self;
+    self.lrView = [[[NSBundle mainBundle]loadNibNamed:@"LoginReminderView" owner:self options:nil]lastObject];
+    self.lrView.frame = CGRectMake(0, 0, WindowWidth, 70);
+    [self.lrView addTarget:self withLoginAction:@selector(toLoginVC:)];
+    
+    self.tipView = [[UIView alloc]initWithFrame:CGRectMake(0, 0, WindowWidth, 50)];
+    self.tipView.backgroundColor = [UIColor whiteColor];
+    self.tipLabel = [[LXD alloc]initWithText:@"" font:12 textAlight:NSTextAlignmentCenter frame:CGRectMake(10, 10, WindowWidth-20, 40) backColor:[UIColor clearColor] textColor:[UIColor darkGrayColor]];
+    self.tipLabel.numberOfLines = 0;
+    [self.tipView addSubview:self.tipLabel];
+    // 添加确认购买视图
+    self.clickToBuyView = [ClickToBuyView clickToBuyView];
+    CGRect frame = self.clickToBuyView.frame;
+    // 设置位置，在tabBar之上
+    frame.origin.y = WindowHeight - self.clickToBuyView.frame.size.height -((self.isFromHome==YES)?0:49);
+    self.clickToBuyView.frame = frame;
+    // 设置响应事件
+    [self.clickToBuyView addTarget:self
+                   selectAllAction:@selector(selectAllButtonClicked:)
+                         buyAction:@selector(BuyButtonClicked:)];
+    [self.view addSubview:self.clickToBuyView];
+    // 设置navigationBar视图
+    UIImage *leftImage = ((self.isFromHome == YES)?[UIImage imageNamed:@"global_back_button"]:nil);
+    [self setNavigationBarWithContent:@"购物车" WithLeftButton:leftImage AndRightButton:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(refreshTableView)name:@"ShoppingCartRefresh" object:nil];
+}
+-(void)leftButtonClick:(UIButton *)button
+{
+    [self.navigationController popViewControllerAnimated:YES];
+}
+-(void)refreshTableView
+{
+    [self getDataFromNet];
+}
+
+-(void)getDataFromNet{
+    //从网络请求购物车信息
+    [[self mainDelegate] beginLoad];
+    HttpDownload *hd = [[HttpDownload alloc]init];
+    self.thisDownLoad = hd;
+    hd.delegate=self;
+    NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",nil];
+    [hd getResultData:dict baseUrl:[NSString stringWithFormat:queryGoodsCarByToken,serviceHost]];
+    hd.type =10086;
+    hd.failMethod = @selector(loadFail);
+    hd.method=@selector(downloadComplete:);
+    
+}
+-(void)pleaseCancelLoad{
+    //取消菊花
+    [[self mainDelegate] endLoad];
+    [self.thisDownLoad ConnectionCanceled];
+    [self.tableView reloadData];
+}
+-(void)loadFail{
+    [self.thisDownLoad ConnectionCanceled];
+    [[self mainDelegate] endLoad];
+    [self.tableView reloadData];
+}
+#pragma mark - tableView数据源代理方法
+-(float)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section{
+    if(self.thisSCModel.allProductArray.count == 0)
+    {
+        self.isExpand = NO;
+        self.clickToBuyView.hidden = YES;
+        self.footerViewHeight = WindowHeight;
+        return WindowHeight;
+    }
+    self.isExpand = YES;
+    self.clickToBuyView.hidden = NO;
+    self.footerViewHeight = 0;
+    return 0;
+}
+-(UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section{
+    ShoppingCartEmptyView * emptyView = [ShoppingCartEmptyView shoppingCartEmptyView];
+    // 设置购物车为空视图按键响应事件
+    [emptyView addTarget:self
+         recommendAction:@selector(recommendButtonClicked:)
+        collectionAction:@selector(collectionButtonClicked:)];
+    emptyView.frame = CGRectMake(0, 0, WindowWidth, WindowHeight);
+    return emptyView;
+}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    return self.thisSCModel.allProductArray.count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    static NSString * reuseID = @"ShoppingCartCell";
+    ShoppingCartCell * cell = [tableView dequeueReusableCellWithIdentifier:reuseID];
+    cell.backgroundColor = [UIColor clearColor];
+    cell.contentView.backgroundColor = [UIColor clearColor];
+    if (cell == nil) {
+        cell = [ShoppingCartCell shoppingCartCell];
+        // 设置cell响应事件
+        [cell addTarget:self
+           selectAction:@selector(selectButtonClicked:)
+           deleteAction:@selector(deleteButtonClicked:)
+      countChangeAction:@selector(countChangeAction:withCount:)
+         joinPlanAction:@selector(joinPlanButtonClicked:)
+     beginEditingAction:@selector(beginEditingAction:)];
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+       [self selectAllButtonClicked:self.clickToBuyView];
+    }
+    // 显示数据
+    Product * product = [self.thisSCModel.allProductArray objectAtIndex:indexPath.row];
+    [cell showWithProduct:product];
+    
+      // 设置cell选中状态
+    if ([self.thisSCModel.selectProductArray containsObject:product]) {
+        [cell setSelectStatus:YES];
+    } else {
+        [cell setSelectStatus:NO];
+    }
+    
+    // 计算所有选中商品的总价
+    self.totalPrice = 0.0;
+    for (Product * product in self.thisSCModel.selectProductArray) {
+        self.totalPrice += product.sellPrice * product.count;
+    }
+    // 设置确认购买视图显示总价
+    [self.clickToBuyView setTotalPrice:self.totalPrice];
+    
+    // 是否已经添加计划
+    if([[DBManager sharedDatabase] isExistInShoppinglist:product.productID] == NO) {
+        cell.joinPlanButton.enabled = YES;
+    } else {
+        cell.joinPlanButton.enabled = NO;
+    }
+    
+    // 判断当前是否已全选
+    if (self.thisSCModel.allProductArray.count == self.thisSCModel.selectProductArray.count) {
+        [self.clickToBuyView setSelectAllStatus:YES];
+    } else {
+        [self.clickToBuyView setSelectAllStatus:NO];
+    }
+    if(indexPath.row == self.thisSCModel.allProductArray.count-1)
+    {
+        if(self.isExpand)
+        {
+            self.isExpand = !self.isExpand;
+            CGSize size = self.tableView.contentSize;
+            size.height += 60;
+            self.tableView.contentSize = size;
+        }
+    }
+    return cell;
+}
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    self.thisProduct = [self.thisSCModel.allProductArray objectAtIndex:indexPath.row];
+    if(self.thisProduct.type == 0)
+    {
+        NSString * str = [NSString stringWithFormat:PRODETAIL_URL,serviceHost, self.thisProduct.productID];
+        HttpDownload *hd=[[HttpDownload alloc]init];
+        self.thisDownLoad = hd;
+        hd.delegate=self;
+        hd.method=@selector(downloadComplete:);
+        hd.failMethod = @selector(loadFail);
+        [hd downloadFromUrl:str];
+        hd.type=1200;
+        [[self mainDelegate] beginLoad];
+    }
+    else
+    {
+        HttpDownload *hd=[[HttpDownload alloc]init];
+        self.thisDownLoad = hd;
+        hd.type=1200;
+        hd.delegate=self;
+        hd.method=@selector(downloadComplete:);
+        hd.failMethod = @selector(loadFail);
+        NSString *url=[NSString stringWithFormat:@"%@interface/commidty/allGoogsDisInfo?categoryID=%@&commodityId=%@&type=1",serviceHost,self.thisProduct.catID,self.thisProduct.productID];
+        [hd downloadFromUrl:url];
+        [[self mainDelegate] beginLoad];
+    }
+}
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    return [ShoppingCartCell heightOfCell];
+}
+#pragma mark - 确认购买视图 代理方法
+- (void)selectAllButtonClicked:(ClickToBuyView *)sender
+{
+    // 判断当前全选状态
+    if (sender.didSelectAll) {
+        [self.thisSCModel.selectProductArray removeAllObjects];
+        [self.thisSCModel.selectProductArray addObjectsFromArray:self.thisSCModel.allProductArray];
+    } else {
+        [self.thisSCModel.selectProductArray removeAllObjects];
+    }
+    [self.tableView reloadData];
+}
+
+#pragma mark - 购物车结算按钮事件
+- (void)BuyButtonClicked:(ClickToBuyView *)sender
+{
+    if(![self isAlreadyLogined])//用户如果没有登录就无法结算
+    {
+        [self showNotLoginAlertView];
+        return;
+    }
+    if (![self ifShouldCheckout]) {
+        return;
+    }
+//    BOOL isHave66 = NO;
+//    BOOL isHaveNormal = NO;
+//    for(Product *product in self.thisSCModel.selectProductArray)
+//    {
+//        if([product.catID isEqualToString:@"66"])
+//        {
+//            isHave66 = YES;
+//        }
+//        else
+//        {
+//            isHaveNormal = YES;
+//        }
+//    }
+//    if((isHaveNormal == NO && isHave66 == YES)||(isHave66 == NO && isHaveNormal == YES))
+//    {
+        // 点击确认购买按钮，直接推到结算中心，订单生成逻辑由结算中心处理。李伟 2014年1月14日。
+     //   SettlementViewController *setVc = [[SettlementViewController alloc] initWithNibName:@"SettlementViewController" bundle:nil];
+       // [setVc setSettlementWithProducts:self.thisSCModel.selectProductArray SeettType:ShoopingCar];
+    JiesuanViewController *setVc = [[JiesuanViewController alloc]init];
+    [setVc setSettlementWithProducts:self.thisSCModel.selectProductArray SeettType:ShoopingCar];
+    
+     //   setVC.isVIP = isHave66;
+        [self.navigationController pushViewController:setVc animated:YES];
+//    }
+//    else{
+//        UIAlertView *al = [[UIAlertView alloc]initWithTitle:@"提示" message:@"请将VIP专区商品与普通商品分开结算" delegate:nil cancelButtonTitle:@"好的" otherButtonTitles:nil, nil];
+//        [al show];
+//    }
+}
+- (BOOL)ifShouldCheckout{
+    
+    if (self.thisSCModel.selectProductArray.count < 1) {
+        UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"温馨提示" message:@"请选择需要结算的订单" delegate:self cancelButtonTitle:@"好的" otherButtonTitles:nil, nil];
+        [alert show];
+        return NO;
+    }
+    return YES;
+}
+#pragma mark - cell 代理方法
+- (void)selectButtonClicked:(ShoppingCartCell *)sender
+{
+    // 获得当前行的index
+    NSIndexPath * indexPath = [self.tableView indexPathForCell:sender];
+    // 拿到对应数据
+    Product * product = [self.thisSCModel.allProductArray objectAtIndex:indexPath.row];
+    // 存入选中列表
+    if ([self.thisSCModel.selectProductArray containsObject:product]) {
+        [self.thisSCModel.selectProductArray removeObject:product];
+    } else {
+        [self.thisSCModel.selectProductArray addObject:product];
+    }
+    // 刷新本行显示
+    [self.tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
+    
+}
+- (void)deleteButtonClicked:(ShoppingCartCell *)sender
+{
+    UIAlertView  *al=[[UIAlertView alloc]initWithTitle:@"  是否确定要删除？" message:@"删除后将无法取回" delegate:self cancelButtonTitle:@"否" otherButtonTitles:@"是", nil];
+    [al show];
+    NSIndexPath * indexPath = [self.tableView indexPathForCell:sender];
+    self.deleteCellIndex = indexPath.row;
+}
+- (void)countChangeAction:(ShoppingCartCell *)sender withCount:(NSNumber *)count
+{
+    NSIndexPath * indexPath = [self.tableView indexPathForCell:sender];
+    Product * product = [self.thisSCModel.allProductArray objectAtIndex:indexPath.row];
+    product.count = [count integerValue];
+    //修改购物车数量
+    [self.tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
+    NSString *countString = [NSString stringWithFormat:@"%d",product.count];
+    if([self isAlreadyLogined])
+    {
+        //如果用户登录
+        HttpDownload *hd = [[HttpDownload alloc]init];
+        hd.delegate = self;
+        hd.method = @selector(downloadComplete:);
+        hd.type = 2;
+        NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithObjectsAndKeys:countString,@"count",product.productID,@"id",nil];
+        NSString *urlString = [NSString stringWithFormat:@"%@interface/goodsCar/updateToGoods",serviceHost];
+        [hd getResultData:dict baseUrl:urlString];
+    }
+    else
+    {
+        //如果用户没有登录
+        [[DBManager sharedDatabase]changeCarlistWith:countString AndID:product.productID];
+    }
+    // 如果调整过位置
+    if (self.distance > 0) {
+        // 调整tableView的frame
+        CGRect frame = self.tableView.frame;
+        frame.origin.y += self.distance;
+        [UIView beginAnimations:nil context:nil];//动画开始
+        [UIView setAnimationDuration:0.30];
+        self.tableView.frame = frame;
+        [UIView commitAnimations];
+        self.distance = 0;
+    }
+}
+- (void)joinPlanButtonClicked:(ShoppingCartCell *)sender
+{
+    NSIndexPath * indexPath = [self.tableView indexPathForCell:sender];
+    Product * product = [self.thisSCModel.allProductArray objectAtIndex:indexPath.row];
+    //将商品添加入计划
+    NSMutableDictionary *dict=[[NSMutableDictionary alloc]init];
+    [dict setObject:product.productID forKey:@"planid"];
+    [dict setObject:product.attrValue forKey:@"urlimage"];
+    [dict setObject:@"0" forKey:@"status"];
+    [dict setObject:product.commodityName forKey:@"planname"];
+    [dict setObject:@"2" forKey:@"type"];
+    [dict setObject:[self generateCompareTime] forKey:@"comparetime"];
+    [dict setObject:[self generateRemindTime] forKey:@"remindtime"];
+    [[DBManager sharedDatabase] insertintoShoppinglist:dict];
+    [WCAlertView showAlertWithTitle:@"提示"
+                            message:@"添加计划成功"
+                 customizationBlock:^(WCAlertView * alertView1) {
+                     alertView1.style=WCAlertViewStyleBlack;
+                 }
+                    completionBlock:^(NSUInteger buttonIndex,WCAlertView * alertView){
+                        if(buttonIndex==0){
+                            [self.tableView reloadData];
+                        }
+                    }
+                  cancelButtonTitle:@"确定"
+                  otherButtonTitles:nil,nil];
+}
+- (void)beginEditingAction:(ShoppingCartCell *)sender
+{
+    NSIndexPath * indexPath = [self.tableView indexPathForCell:sender];
+    // 获取当前进行编辑的cell的位置
+    CGRect rect = [self.tableView convertRect:[self.tableView rectForRowAtIndexPath:indexPath] toView:[self.tableView superview]];
+    // cell的最下坐标
+    CGFloat y = rect.origin.y + [ShoppingCartCell heightOfCell];
+    //键盘的高度
+    float height = 216.0;
+    // 计算需要调整的距离, cell的最下减去键盘视图的最上, 为被挡住的距离, 需要调整
+    self.distance = y - (WindowHeight - height - 30);
+    // 如果有覆盖
+    if (self.distance > 0) {
+        // 调整tableView的frame
+        CGRect frame = self.tableView.frame;
+        frame.origin.y -= self.distance;
+        [UIView beginAnimations:nil context:nil];//动画开始
+        [UIView setAnimationDuration:0.30];
+        self.tableView.frame = frame;
+        [UIView commitAnimations];
+    }
+}
+#pragma mark - 删除一条购物车数据时的AlertView 代理方法
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex{
+    //删除对话框的处理
+    switch (buttonIndex) {
+        case 0:
+            break;
+        case 1:
+        {
+            //删除
+            if([self isAlreadyLogined] == YES)
+            {   //已登录状态下删除
+                Product * product = [self.thisSCModel.allProductArray objectAtIndex:self.deleteCellIndex];
+                [[self mainDelegate] beginLoad];
+                //从网络数据库删除该购物车
+                HttpDownload *hd=[[HttpDownload alloc]init];
+                self.thisDownLoad = hd;
+                hd.delegate=self;
+                NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",product.goodsID,@"ids",nil];
+                [hd getResultData:dict baseUrl:[NSString stringWithFormat:deleteToGoods,serviceHost]];
+                hd.type =10087;
+                hd.method=@selector(downloadComplete:);
+            }
+            else
+            {
+                //未登录状态下删除
+                Product * product = [self.thisSCModel.allProductArray objectAtIndex:self.deleteCellIndex];
+                [[DBManager sharedDatabase]deleteDataFromCarlistWithID:product.productID];
+                [self.thisSCModel.allProductArray removeObject:product];
+                [self.thisSCModel.selectProductArray removeObject:product];
+                NSIndexPath * indexPath = [NSIndexPath indexPathForRow:self.deleteCellIndex inSection:0];
+                [self.tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationLeft];
+                // 计算所有选中商品的总价
+                self.totalPrice = 0.0;
+                for (Product * product in self.thisSCModel.selectProductArray) {
+                    self.totalPrice += product.sellPrice * product.count;
+                }
+                // 设置确认购买视图显示总价
+                [self.clickToBuyView setTotalPrice:self.totalPrice];
+                [self mainDelegate].countOfCart -= product.count;
+                NSString *countString = [NSString stringWithFormat:@"%d",[self mainDelegate].countOfCart];
+                [self.leveyTabBarController addNumToCarList:countString];
+            }
+            
+        }
+            break;
+        default:
+            break;
+    }
+}
+
+#pragma mark - emptyView 代理方法  推荐
+- (void)recommendButtonClicked:(id)sender
+{
+    //购物车为空时，点击推荐，在此页进行请求并跳转
+    RecommendViewController *rec = [[RecommendViewController alloc]init];
+    [self.navigationController pushViewController:rec animated:YES];
+}
+- (void)collectionButtonClicked:(id)sender
+{
+    //购物车为空时，点击收藏，在此页进行跳转
+    if ([self isAlreadyLogined]) {
+        CollectViewController * collectVC = [[CollectViewController alloc] init];
+        [self.navigationController pushViewController:collectVC animated:YES];
+    } else {
+        [self showNotLoginAlertView];
+    }
+}
+#pragma mark - 下载数据
+-(void)downloadComplete:(HttpDownload *)hd1{
+    //处理网络请求的返回值
+    NSDictionary *dict=[NSJSONSerialization JSONObjectWithData:hd1.downloadData options:NSJSONReadingMutableContainers error:nil];
+    if(dict){
+        if(hd1.type == 2)
+        {
+            //
+        }
+        
+        if(hd1.type==10086){
+            [[self mainDelegate] endLoad];// 获取所有购物车数据
+            if([[dict objectForKey:@"status"] intValue]==0){
+                
+                self.thisSCModel = [[ShoppingCartModel alloc]initShoppingCartModelWith:(NSMutableDictionary *)dict];
+                if([self.thisSCModel.tipsFromNet length]>0)
+                {
+                   float height = [self heightForString:self.thisSCModel.tipsFromNet fontSize:12 andWidth:WindowWidth-20];
+                    CGRect frame = self.tipView.frame;
+                    frame.size.height = height + 20;
+                    self.tipView.frame= frame ;
+                    frame = self.tipLabel.frame;
+                    frame.size.height = height;
+                    self.tipLabel.frame = frame;
+                    self.tableView.tableHeaderView = self.tipView;
+                    self.tipLabel.text = self.thisSCModel.tipsFromNet;
+                }
+                [self.tableView reloadData];
+                [self getShoppingCarNumFromNet];
+            }
+        }
+        if(hd1.type==1989)
+        {
+            [[self mainDelegate] endLoad];
+            if([[dict objectForKey:@"status"] intValue]==0){
+                [self mainDelegate].countOfCart = [[dict objectForKey:@"count"] intValue];
+                NSString *count1 = [NSString stringWithFormat:@"%d",[self mainDelegate].countOfCart];
+                [self.leveyTabBarController addNumToCarList:count1];
+            }
+        }
+        if(hd1.type==10087){
+            [[self mainDelegate] endLoad];// 删除cell
+            if ([[dict objectForKey:@"status"] intValue] == 0) {
+                Product * product = [self.thisSCModel.allProductArray objectAtIndex:self.deleteCellIndex];
+                [self.thisSCModel.allProductArray removeObject:product];
+                [self.thisSCModel.selectProductArray removeObject:product];
+                NSIndexPath * indexPath = [NSIndexPath indexPathForRow:self.deleteCellIndex inSection:0];
+                [self.tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationLeft];
+                // 计算所有选中商品的总价
+                self.totalPrice = 0.0;
+                for (Product * product in self.thisSCModel.selectProductArray) {
+                    self.totalPrice += product.sellPrice * product.count;
+                }
+                // 设置确认购买视图显示总价
+                [self.clickToBuyView setTotalPrice:self.totalPrice];
+                [self getShoppingCarNumFromNet];
+            }
+        }
+        if(hd1.type==1200){
+            [[self mainDelegate] endLoad];
+            if ([[[dict objectForKey:@"mapinfo"] objectForKey:@"status"] integerValue] != 0) {
+                [self showError:[NSString stringWithFormat:@"%@",[[dict objectForKey:@"mapinfo"] objectForKey:@"msg"]]];
+                return;
+            }
+            ProductdetailsViewController *so = [[[ProductdetailsViewController alloc] initWithNibName:@"ProductdetailsViewController" bundle:nil] autorelease];
+            so.type = self.thisProduct.type;
+            so.catID = self.thisProduct.catID;
+            so.detailDict = dict;
+            [self.navigationController pushViewController:so animated:YES];
+        }
+    }
+}
+//换行
+- (float) heightForString:(NSString *)value fontSize:(float)fontSize andWidth:(float)width
+{
+    CGSize sizeToFit = [value sizeWithFont:[UIFont systemFontOfSize:fontSize] constrainedToSize:CGSizeMake(width, CGFLOAT_MAX) lineBreakMode:NSLineBreakByWordWrapping];
+    return sizeToFit.height;
+}
+- (void)didReceiveMemoryWarning
+{
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+@end

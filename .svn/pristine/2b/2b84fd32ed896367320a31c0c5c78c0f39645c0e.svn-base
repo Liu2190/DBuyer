@@ -1,0 +1,531 @@
+//
+//  TUserCenterController.m
+//  DBuyer
+//
+//  Created by dilei liu on 14-3-5.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "TUserCenterController.h"
+#import "TServerFactory.h"
+#import "TOrderServer.h"
+#import "TUserCenterServer.h"
+#import "TMapViewController.h"
+#import "TUtilities.h"
+#import "TOrderMenuView.h"
+#import "TUserCenterCell_0.h"
+#import "TRowModel.h"
+#import "Integral.h"
+#import "TSectionModel.h"
+
+#import "TLoginController.h"
+#import "AboutUSDetailViewController.h"
+#import "DefaultAddressViewController.h"
+#import "CollectViewController.h"
+#import "DfkddViewController.h"
+#import "DfhddViewController.h"
+#import "YwcListViewController.h"
+#import "TReturnOrderListController.h"
+#import "TAllScoListController.h"
+#import "SDImageCache.h"
+#import "UserFeedbackViewController.h"
+#import "ShareView.h"
+#import "TAllscoGoodListController.h"
+#import "TAllscoOrderListController.h"
+
+#define Customer_Scale_V    .5
+
+#define text_cell_mecart     @"我的储值卡"
+#define text_cell_ordercart  @"储值卡订单"
+#define text_cell_szsp       @"收藏商品"
+#define text_cell_shdz    @"收货地址"
+#define text_cell_sbhl    @"身边华联"
+#define text_cell_abount  @"关于我们"
+#define text_cell_celan   @"清除缓存"
+#define text_cell_quit    @"退出登录"
+#define text_cell_yhfk    @"用户反馈"
+#define text_cell_fx      @"喜欢尚超市？分享给好友吧"
+#define text_cell_df      @"喜欢尚超市？打分鼓励一下"
+#define text_appid        @"764279408"
+
+#define text_allscoGoods  @"购买预付卡"
+
+@implementation TUserCenterController
+
+
+- (id)initWithImageUrls:(NSArray *)imageUrls andNavigationTitle:(NSString*)title {
+    self = [super initWithImageUrls:imageUrls];
+    self.titleAttached = title;
+    self.hasBackAction = NO;
+    self.hasNavi = YES;
+
+    return self;
+}
+
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    [self.tableView setFrame:CGRectMake(self.tableView.frame.origin.x, self.tableView.frame.origin.y, self.tableView.frame.size.width, self.tableView.frame.size.height-50)];
+    [self.tableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+    
+    self.datas = [self getUserCenterData];
+    
+    // 如果已经登录，显示订单信息
+    if (self.isAlreadyLogined) {
+        [self addLoginButtonAction];
+        [self getOrdersNumber];
+    }
+    
+    // 向通知中心注册登录成功事件
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(doLoginSucess:) name:@"Notification_DbuyerLoginSucess" object:nil];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self.leveyTabBarController hidesTabBar:NO animated:YES];
+    if ([[TUtilities getInstance]controlAppVar]) {
+        [[TUtilities getInstance]setControlAppVar:NO];
+        if (self.isAlreadyLogined) {
+            [self getOrdersNumber];
+            [self.tableView reloadData];
+        }
+    }
+}
+
+/**
+ *  获取订单信息
+ */
+- (void)getOrdersNumber  {
+    [[TServerFactory getServerInstance:@"TOrderServer"]doGetOrderNumBycallback:^(TOrdersNum *ordersNum) {
+        [_menuView showOrderNum:ordersNum];
+        integralNum = ordersNum.integralInfo;
+        [_userFaceController changeViewStatus:ordersNum.integralInfo andIsLogin:YES];
+        
+    } failureCallback:^(NSString *resp) {
+       
+    }];
+}
+
+
+/**
+ *  获取表格数据源
+ */
+- (NSMutableArray*) getUserCenterData {
+    NSMutableArray *data = [[NSMutableArray alloc]init];
+    
+    // 我的储存卡
+    TSectionModel *SectionModel_1 = [[[TSectionModel alloc]init]autorelease];
+    TRowModel *cartRowModel = [[[TRowModel alloc]init]autorelease];
+    [cartRowModel addDataValue:text_cell_mecart andKey:@"title"];
+//    TRowModel *orderCardModel = [[[TRowModel alloc]init]autorelease];
+//    [orderCardModel addDataValue:text_cell_ordercart andKey:@"title"];
+//    orderCardModel.isSperator = YES;
+    
+    [SectionModel_1 addRowModel:cartRowModel];
+//    [SectionModel_1 addRowModel:orderCardModel];
+    [data addObject:SectionModel_1];
+    
+//    TSectionModel *SectionModel_7 = [[[TSectionModel alloc]init]autorelease];
+//    TRowModel *cartRowModel_7 = [[[TRowModel alloc]init]autorelease];
+//    [cartRowModel_7 addDataValue:text_allscoGoods andKey:@"title"];
+//    [SectionModel_7 addRowModel:cartRowModel_7];
+//    [data addObject:SectionModel_7];
+    
+    
+    // 收藏商品和收货地址
+    TSectionModel *SectionModel_2 = [[[TSectionModel alloc]init]autorelease];
+    TRowModel *scspRowModel = [[[TRowModel alloc]init]autorelease];
+    [scspRowModel addDataValue:text_cell_szsp andKey:@"title"];
+    TRowModel *shdzRowModel = [[[TRowModel alloc]init]autorelease];
+    [shdzRowModel addDataValue:text_cell_shdz andKey:@"title"];
+    shdzRowModel.isSperator = YES;
+    [SectionModel_2 addRowModel:scspRowModel];
+    [SectionModel_2 addRowModel:shdzRowModel];
+    [data addObject:SectionModel_2];
+    
+    // 身边的华联、关于我们和用户反馈、分享、打分
+    TSectionModel *SectionModel_4 = [[[TSectionModel alloc]init]autorelease];
+    TRowModel *sbhnRowModel = [[[TRowModel alloc]init]autorelease];
+    [sbhnRowModel addDataValue:text_cell_sbhl andKey:@"title"];
+    TRowModel *aboutRowModel = [[[TRowModel alloc]init]autorelease];
+    aboutRowModel.isSperator = YES;
+    [aboutRowModel addDataValue:text_cell_abount andKey:@"title"];
+    TRowModel *userFeedBackModel = [[[TRowModel alloc]init]autorelease];
+    userFeedBackModel.isSperator = YES;
+    [userFeedBackModel addDataValue:text_cell_yhfk andKey:@"title"];
+    TRowModel *fxModel = [[[TRowModel alloc]init]autorelease];
+    fxModel.isSperator = YES;
+    [fxModel addDataValue:text_cell_fx andKey:@"title"];
+    TRowModel *dafenModel = [[[TRowModel alloc]init]autorelease];
+    dafenModel.isSperator = YES;
+    [dafenModel addDataValue:text_cell_df andKey:@"title"];
+    [SectionModel_4 addRowModel:sbhnRowModel];
+    [SectionModel_4 addRowModel:aboutRowModel];
+    [SectionModel_4 addRowModel:userFeedBackModel];
+    [SectionModel_4 addRowModel:fxModel];
+    [SectionModel_4 addRowModel:dafenModel];
+    [data addObject:SectionModel_4];
+    
+    // 清除缓存
+    TSectionModel *SectionModel_3 = [[[TSectionModel alloc]init]autorelease];
+    TRowModel *qchcRowModel = [[[TRowModel alloc]init]autorelease];
+    [qchcRowModel addDataValue:text_cell_celan andKey:@"title"];
+    [SectionModel_3 addRowModel:qchcRowModel];
+    [data addObject:SectionModel_3];
+    
+    return data;
+}
+
+/**
+ *  增加退出按钮
+ */
+- (void) addLoginButtonAction {
+    TSectionModel *sectionModel_5 = [[[TSectionModel alloc]init]autorelease];
+    TRowModel *exitLoginRowModel = [[[TRowModel alloc]init]autorelease];
+    [exitLoginRowModel addDataValue:@"退出登录" andKey:@"title"];
+    exitLoginRowModel.isArrow = NO;
+    [sectionModel_5 addRowModel:exitLoginRowModel];
+    
+    [self.datas addObject:sectionModel_5];
+}
+
+- (void)layoutImages {
+    [super layoutImages];
+    
+    if (_menuView == nil) {
+        NSArray *buttonImages= @[@"OrderMenu_toPay.png",@"OrderMenu_toReceive.png",@"OrderMenu_Finished.png",@"OrderMenu_Exit.png"];
+        CGRect menuRect = CGRectMake(0, self.transparentScroller.frame.size.height-65, self.transparentScroller.frame.size.width, 65);
+        _menuView = [[TOrderMenuView alloc]initWithFrame:menuRect andImageNames:buttonImages andDelegate:self];
+        [_menuView setBackgroundColor:[UIColor colorWithRed:0 green:0 blue:0 alpha:.8f]];
+        [self.transparentScroller addSubview:_menuView];
+    }
+    
+    // 初始化个人中心头部助理器
+    if (_userFaceController == nil) {
+        CGPoint point = CGPointMake(self.transparentScroller.center.x, self.transparentScroller.center.y-_menuView.frame.size.height/2) ;
+        _userFaceController = [[TUserFaceController alloc]initWithPosition:point];
+        _userFaceController.delegate = self;
+        [self.transparentScroller addSubview:_userFaceController.view];
+    }
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    if (section == 0 || section == self.datas.count)return 0;
+    return 10;
+}
+
+- (UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section {
+    
+    UIView *footerView = [[[UIView alloc]initWithFrame:CGRectMake(0, 0, tableView.frame.size.width, 10)]autorelease];
+    [footerView setBackgroundColor:[UIColor colorWithRed:239.0/255.0 green:237.0/255.0 blue:216.0/255.0 alpha:1]];
+    return footerView;
+    
+}
+
+
+- (void)loginSuccess:(TDbuyerUser*)dbuyerUser {
+ 
+}
+
+/**
+ * 通知回调方法，用于其它类调用登录组件进行成功登录后自动回调的一个方法，
+ * 主要用于实时更新个人中心登录状态
+ */
+- (void)doLoginSucess:(NSNotification *)notification {
+    // NSDictionary *dict = [notification userInfo];
+    // TDbuyerUser *dbuyerUser = [dict objectForKey:@"userobject"];
+    
+    if (!self.isAlreadyLogined) [self addLoginButtonAction];
+    [self getOrdersNumber];
+    [self.tableView reloadData];
+}
+
+
+#pragma mark - Table view data source
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return (self.datas.count>0?self.datas.count+1:0);
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    if (section == 0) return 1;
+    
+    TSectionModel *sectionModel = [self.datas objectAtIndex:section-1];
+    return sectionModel.rows.count>0?sectionModel.rows.count:0;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSString *cellName = @"TUserCenterCell";
+    
+    int index = 0;
+    if (indexPath.section-1 >= 0) {
+        TSectionModel *sectonModel = [self.datas objectAtIndex:indexPath.section-1];
+        TRowModel *rowModel = [sectonModel.rows objectAtIndex:indexPath.row];
+        NSString *title = [rowModel.datas objectForKey:@"title"];
+        index = (sectonModel.rows.count>1?2:1);
+        if ([title isEqualToString:text_cell_quit])index = 3;
+    }
+    
+    NSString *cellClassName = [NSString stringWithFormat:@"%@_%i",cellName,index];
+    TUserCenterCell_0 *baseCell = [tableView dequeueReusableCellWithIdentifier:cellClassName];
+    
+    if (baseCell == nil) {
+        Class controllerClass = NSClassFromString(cellClassName);
+        baseCell = [[controllerClass alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellClassName];
+        [baseCell setBackgroundColor:[UIColor colorWithRed:239.0/255.0 green:237.0/255.0 blue:216.0/255.0 alpha:1]];
+        
+        if (indexPath.section == 0) {
+            [baseCell.contentView addSubview:self.transparentScroller];
+            baseCell.backgroundColor = [UIColor clearColor];
+            baseCell.contentView.backgroundColor = [UIColor clearColor];
+            return baseCell;
+        }
+    }
+    
+    if (indexPath.section != 0) {
+        TSectionModel *sectonModel = [self.datas objectAtIndex:indexPath.section-1];
+        TRowModel *rowModel = [sectonModel.rows objectAtIndex:indexPath.row];
+        [baseCell setDataForCell:rowModel];
+        [baseCell setActionForTarget:self];
+    }
+    
+    
+    return baseCell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    if(indexPath.section == 0) return;
+    [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
+    
+    TSectionModel *sectonModel = [self.datas objectAtIndex:indexPath.section-1];
+    TRowModel *rowModel =  [sectonModel.rows objectAtIndex:indexPath.row];
+    NSString *celltext = [rowModel.datas objectForKey:@"title"];
+    
+    if ([celltext isEqualToString:text_cell_mecart]) {
+        if (self.isAlreadyLogined) {
+            TAllScoListController *allScoListController = [[TAllScoListController alloc]initWithNavigationTitle:@"我的储值卡"];
+            [self.navigationController pushViewController:allScoListController animated:YES];
+            [allScoListController release];
+        } else {
+            TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+            loginController.delegate = self;
+            UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+            [self.navigationController presentViewController:navi animated:YES completion:nil];
+        }
+    }
+    
+    if ([celltext isEqualToString:text_cell_ordercart]) {
+        if (self.isAlreadyLogined) {
+            TAllscoOrderListController *allscoOrlderList = [[TAllscoOrderListController alloc]initWithNavigationTitle:@"储值卡订单"];
+            [self.navigationController pushViewController:allscoOrlderList animated:YES];
+            [self.leveyTabBarController hidesTabBar:YES animated:NO];
+            [allscoOrlderList release];
+            
+        } else {
+            TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+            loginController.delegate = self;
+            UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+            [self.navigationController presentViewController:navi animated:YES completion:nil];
+        }
+    }
+    
+    if ([celltext isEqualToString:text_cell_szsp]) {
+        if (self.isAlreadyLogined) {
+            CollectViewController *sc=[[CollectViewController alloc] init];
+            [self.navigationController pushViewController:sc animated:YES];
+        } else {
+            TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+            loginController.delegate = self;
+            UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+            [self.navigationController presentViewController:navi animated:YES completion:nil];
+        }
+        
+    }
+    
+    if ([celltext isEqualToString:text_cell_shdz]) {
+        if (self.isAlreadyLogined) {
+            DefaultAddressViewController * defaultVC = [[DefaultAddressViewController alloc]initWithNibName:@"DefaultAddressViewController" bundle:nil];
+            [self.navigationController pushViewController:defaultVC animated:YES];
+            [self.leveyTabBarController hidesTabBar:YES animated:YES];
+        }else {
+            TLoginController *loginController = [[[TLoginController alloc]initWithNavigationTitle:@"登录"]autorelease];
+            loginController.delegate = self;
+            UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+            [self.navigationController presentViewController:navi animated:YES completion:nil];
+        }
+    }
+    
+    if ([celltext isEqualToString:text_cell_sbhl]) {
+        TMapViewController *mapController = [[[TMapViewController alloc]initWithNavigationTitle:@"身边的华联"]autorelease];
+        [self.navigationController pushViewController:mapController animated:YES];
+        [self.leveyTabBarController hidesTabBar:YES animated:YES];
+    }
+    
+    if([celltext isEqualToString:text_cell_yhfk]){
+        UserFeedbackViewController *UFVC = [[UserFeedbackViewController alloc]init];
+        [self.navigationController pushViewController:UFVC animated:YES];
+    }
+    
+    if([celltext isEqualToString:text_cell_df]) {
+        NSString *url = [NSString stringWithFormat:@"itms-apps://itunes.apple.com/app/id%@",text_appid];
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]];
+    }
+    
+    if([celltext isEqualToString:text_cell_fx]) {
+        NSString *shareContent=@"";//分享的url需要确定
+        NSString *titleString = @"尚超市BHG，华联生活超市官方应用，更多优惠，更多惊喜！";//分享的内容
+        ShareView *shareView = [[ShareView alloc]initShareViewWith:titleString AndContent:shareContent AndImage:@"Icon.png"];
+        [self.view addSubview:shareView];
+    }
+    
+    if ([celltext isEqualToString:text_cell_abount]) {
+        [[TServerFactory getServerInstance:@"TUserCenterServer"]doGetAbountDataByCallback:^(NSArray *datas) {
+            AboutUSDetailViewController *gu=[[AboutUSDetailViewController alloc]init];
+            gu.array = datas;
+            [self.navigationController pushViewController:gu animated:YES];
+            [self.leveyTabBarController hidesTabBar:YES animated:YES];
+        } failureCallback:^(NSString *resp) {
+            
+        }];
+    }
+    
+    if ([celltext isEqualToString:text_cell_celan]) {
+        float size = [self checkTmpSize];
+        NSString *sizeS = [NSString stringWithFormat:@"%.2f",size];
+        NSString *info = [NSString stringWithFormat:@"图片缓存%@M，是否清除",sizeS];
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:info
+                                                       delegate:self cancelButtonTitle:@"取消" otherButtonTitles: @"清除",nil];
+        [alert show];
+    }
+    
+    if ([celltext isEqualToString:text_cell_quit]) {
+        [self doExitLoginAction];
+    }
+    
+    if ([celltext isEqualToString:text_allscoGoods]) {
+        TAllscoGoodListController *goodsListController = [[TAllscoGoodListController alloc]initWithNavigationTitle:@"奥斯联名卡"];
+        [self.navigationController pushViewController:goodsListController animated:YES];
+        [self.leveyTabBarController hidesTabBar:YES animated:YES];
+    }
+}
+
+- (void)doExitLoginAction {
+    [[self mainDelegate]changeTabbarCartNum:0];//清空
+    [[TUtilities getInstance]popTarget:self.view];
+    [[TServerFactory getServerInstance:@"TUserCenterServer"]doExitLoginByCallback:^(NSString *ret) {
+        [[TUtilities getInstance]popMessage:ret target:self.view];
+        
+        [[TUtilities getInstance]storeUserInfo:@"" andPassword:@""];
+        [_userFaceController changeViewStatus:0 andIsLogin:NO];
+        [_menuView showOrderNum:nil];
+        
+        [self.datas removeLastObject];
+        [self.tableView scrollToRowAtIndexPath:[NSIndexPath indexPathForItem:0 inSection:0]
+                              atScrollPosition:UITableViewScrollPositionTop animated:YES];
+        [self.tableView reloadData];
+    } failureCallback:^(NSString *resp) {
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:1.f];
+    }];
+}
+
+
+- (void)clickedLogin {
+    [self.leveyTabBarController hidesTabBar:YES animated:YES];
+    TLoginController *loginController = [[[TLoginController alloc]init]autorelease];
+    loginController.delegate = self;
+    
+    UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+    [self.navigationController presentViewController:navi animated:YES completion:nil];
+}
+
+- (void)seeIntegral {
+    Integral *integral = [[Integral alloc]initWithNibName:@"Integral" bundle:nil];
+    integral.jifen = [NSString stringWithFormat:@"%i",integralNum];
+    [self.navigationController pushViewController:integral animated:YES];
+}
+
+/* ------------------------------*/
+- (void)toParyOrderList { // 待付款
+    if (self.isAlreadyLogined) {
+        DfkddViewController *df=[[DfkddViewController alloc]init];
+        [self.navigationController pushViewController:df animated:YES];
+    } else {
+        TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+        loginController.delegate = self;
+        UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+        [self.navigationController presentViewController:navi animated:YES completion:nil];
+    }
+}
+
+- (void)toReceiveOrderList { // 待收货
+    if (self.isAlreadyLogined) {
+        DfhddViewController *df=[[DfhddViewController alloc]init];
+        [self.navigationController pushViewController:df animated:YES];
+    } else {
+        TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+        loginController.delegate = self;
+        UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+        [self.navigationController presentViewController:navi animated:YES completion:nil];
+    }
+}
+
+- (void)finishedOrderList { // 完成
+    if (self.isAlreadyLogined) {
+        YwcListViewController *ywc=[[YwcListViewController alloc]init];
+        [self.navigationController pushViewController:ywc animated:YES];
+    } else {
+        TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+        loginController.delegate = self;
+        UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+        [self.navigationController presentViewController:navi animated:YES completion:nil];
+    }
+}
+
+- (void)exitOrderList { // 退款列表
+    if (self.isAlreadyLogined) {
+        [self.leveyTabBarController hidesTabBar:YES animated:YES];
+        TReturnOrderListController *reOrderListController = [[TReturnOrderListController alloc]initWithNavigationTitle:@"退款中订单"];
+        [self.navigationController pushViewController:reOrderListController animated:YES];
+        [reOrderListController release];
+    } else {
+        TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+        loginController.delegate = self;
+        UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+        [self.navigationController presentViewController:navi animated:YES completion:nil];
+    }
+}
+
+#pragma mark - UIAlertViewDelegate
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex{
+    if (buttonIndex == 1) {
+        [[SDImageCache sharedImageCache] clearMemory];
+        [[SDImageCache sharedImageCache] clearDisk];
+        [self.tableView reloadData];
+    }
+}
+
+- (float)checkTmpSize {
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+    NSString *diskCachePath = [[[paths objectAtIndex:0] stringByAppendingPathComponent:@"ImageCache"] retain];
+    
+    float totalSize = 0;
+    NSDirectoryEnumerator *fileEnumerator = [[NSFileManager defaultManager] enumeratorAtPath:diskCachePath];
+    for (NSString *fileName in fileEnumerator) {
+        NSString *filePath = [diskCachePath stringByAppendingPathComponent:fileName];
+        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
+        unsigned long long length = [attrs fileSize];
+        totalSize += length / 1024.0 / 1024.0;
+    }
+    
+    return totalSize;
+}
+
+- (void)dealloc {
+    [super dealloc];
+    
+    [_menuView release];
+    _menuView = nil;
+    
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"Notification_DbuyerLoginSucess" object:nil];
+}
+
+@end

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="5053" systemVersion="13B42" targetRuntime="iOS.CocoaTouch" variant="6xAndEarlier" propertyAccessControl="none">
+    <dependencies>
+        <deployment defaultVersion="1552" identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="3733"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="0e9-ZD-iYa" customClass="SearchBarView">
+            <rect key="frame" x="0.0" y="0.0" width="320" height="64"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+            <subviews>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" adjustsImageWhenHighlighted="NO" lineBreakMode="middleTruncation" id="MEL-rv-VAg">
+                    <rect key="frame" x="57" y="31" width="243" height="25"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <state key="normal" backgroundImage="Image_SearchView_02.png">
+                        <color key="titleShadowColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <connections>
+                        <action selector="searchButtonClicked:" destination="0e9-ZD-iYa" eventType="touchUpInside" id="xmX-Tg-4Wt"/>
+                    </connections>
+                </button>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" image="Image_SearchView_01.png" id="Rce-U5-ct8">
+                    <rect key="frame" x="67" y="36" width="15" height="15"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" image="Image_SearchView_03.png" id="K7v-1g-kXW">
+                    <rect key="frame" x="10" y="34" width="20" height="20"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" id="SIm-W1-i1o">
+                    <rect key="frame" x="0.0" y="4" width="70" height="60"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <fontDescription key="fontDescription" type="boldSystem" pointSize="15"/>
+                    <state key="normal">
+                        <color key="titleColor" red="0.19607843459999999" green="0.30980393290000002" blue="0.52156865600000002" alpha="1" colorSpace="calibratedRGB"/>
+                        <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <state key="highlighted">
+                        <color key="titleColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <connections>
+                        <action selector="leftButtonClicked:" destination="0e9-ZD-iYa" eventType="touchUpInside" id="AbC-Wo-Bef"/>
+                    </connections>
+                </button>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" image="Image_SearchView_03.png" id="EZW-oN-z2H">
+                    <rect key="frame" x="290" y="34" width="20" height="20"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" id="0NZ-t3-EJF">
+                    <rect key="frame" x="260" y="4" width="70" height="60"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <fontDescription key="fontDescription" type="boldSystem" pointSize="15"/>
+                    <state key="normal">
+                        <color key="titleColor" red="0.19607843459999999" green="0.30980393290000002" blue="0.52156865600000002" alpha="1" colorSpace="calibratedRGB"/>
+                        <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <state key="highlighted">
+                        <color key="titleColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <connections>
+                        <action selector="backButtonClicked:" destination="0e9-ZD-iYa" eventType="touchUpInside" id="zN1-La-Kut"/>
+                        <action selector="rightButtonClicked:" destination="0e9-ZD-iYa" eventType="touchUpInside" id="2Ba-o0-2bi"/>
+                    </connections>
+                </button>
+                <label opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="大家都在搜：可乐" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" id="SVY-3D-sgz">
+                    <rect key="frame" x="90" y="31" width="210" height="27"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="12"/>
+                    <color key="textColor" white="0.66666666666666663" alpha="1" colorSpace="calibratedWhite"/>
+                    <color key="highlightedColor" cocoaTouchSystemColor="darkTextColor"/>
+                </label>
+            </subviews>
+            <color key="backgroundColor" red="0.0" green="0.3803921569" blue="0.30196078430000001" alpha="1" colorSpace="calibratedRGB"/>
+            <connections>
+                <outlet property="leftButton" destination="SIm-W1-i1o" id="lNK-lG-iOp"/>
+                <outlet property="leftButtonImageView" destination="K7v-1g-kXW" id="nq9-uT-CXF"/>
+                <outlet property="placeHolderLabel" destination="SVY-3D-sgz" id="t53-Cc-erj"/>
+                <outlet property="rightButton" destination="0NZ-t3-EJF" id="ls3-7t-iz7"/>
+                <outlet property="rightButtonImageView" destination="EZW-oN-z2H" id="TKv-9K-zdH"/>
+                <outlet property="searchButton" destination="MEL-rv-VAg" id="vFL-Bo-5S4"/>
+                <outlet property="zoomImageView" destination="Rce-U5-ct8" id="qzQ-Y9-Xxk"/>
+            </connections>
+        </view>
+    </objects>
+    <resources>
+        <image name="Image_SearchView_01.png" width="58" height="63"/>
+        <image name="Image_SearchView_02.png" width="608" height="190"/>
+        <image name="Image_SearchView_03.png" width="38" height="33"/>
+    </resources>
+</document>

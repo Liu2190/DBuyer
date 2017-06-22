@@ -1,0 +1,364 @@
+//
+//  GiftdetailsViewController.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-1-12.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "GiftdetailsViewController.h"
+#import "AppDelegate.h"
+#import "ProductdetailsViewController.h"
+#import "LeveyTabBarController.h"
+#import "WCAlertView.h"
+#import "DescriptionOfPD.h"
+#import "BuyViewOfPD.h"
+#import "ProductOfPD.h"
+#import "StartPoint.h"
+#import "GiftCell.h"
+#import "SettlementViewController.h"
+#import "Product.h"
+#import "GiftDetail.h"
+#import "ShareView.h"
+#import "TLoginController.h"
+#import "BannerView.h"
+#import "TLoginHandlerDelegate.h"
+#import "MJPhotoBrowser.h"
+#import "MJPhoto.h"
+#import "JiesuanViewController.h"
+
+#import "GiftSever.h"
+#import "TServerFactory.h"
+#import "TUtilities.h"
+
+@interface GiftdetailsViewController ()<BannerViewDelegate,UIScrollViewDelegate,UIActionSheetDelegate,UITableViewDataSource,UITableViewDelegate,BannerViewDelegate,TLoginHandlerDelegate>
+{
+    AppDelegate *mainDelegate;
+    HttpDownload *thisDownLoad;
+    UITableView *userTableView;
+}
+@property (nonatomic,retain)GiftDetail *thisGift;
+@property (nonatomic,assign)ShareView *shareView;
+@property (nonatomic,assign)BannerView *bannerView;
+@property (nonatomic,retain)Product *clickPro;
+@end
+
+@implementation GiftdetailsViewController
+@synthesize gid;
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
+{
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        // Custom initialization
+        self.clickPro = [[Product alloc]init];
+    }
+    return self;
+}
+-(void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [self.leveyTabBarController hidesTabBar:YES animated:YES];
+}
+#pragma mark - Notification-pleaseCancelLoad
+-(void)pleaseCancelLoad
+{
+    [mainDelegate endLoad];
+    [thisDownLoad ConnectionCanceled];
+}
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+	// Do any additional setup after loading the view.
+    self.navigationController.navigationBar.hidden = YES;
+    self.thisGift = [[GiftDetail alloc]init];
+    [self setNavigationBarWithContent:@"礼包详情" WithLeftButton:[UIImage imageNamed:@"global_back_button"] AndRightButton:[UIImage imageNamed:@"pro_share_image"]];
+    float height1 = [StartPoint startPoint];
+    float height=((WindowHeight)-height1);
+    userTableView=[[UITableView alloc]initWithFrame:CGRectMake(0, [StartPoint startPoint], 320, height) style:UITableViewStylePlain];
+    userTableView.delegate=self;
+    userTableView.dataSource=self;
+    userTableView.backgroundColor=[UIColor clearColor];
+    userTableView.separatorStyle=UITableViewCellSeparatorStyleNone;
+    [self.view addSubview:userTableView];
+    mainDelegate = [self mainDelegate];
+    [self getDataFromNet];
+}
+-(void)leftButtonClick:(UIButton *)button
+{
+    [self.navigationController popViewControllerAnimated:YES];
+}
+-(void)rightButtonClick:(UIButton *)button
+{
+    NSString *shareContent=[NSString stringWithFormat:@"%@ ￥%.2f",self.thisGift.boxName,self.thisGift.boxPrice];
+    self.shareView = [[ShareView alloc]initShareViewWith:@"掌上逛华联，随时“尚超市”" AndContent:shareContent AndImage:[self.thisGift.slideArray objectAtIndex:0]];
+    [self.view addSubview:self.shareView];
+}
+
+-(void)getDataFromNet
+{
+    [[TUtilities getInstance]popTarget:self.view status:@"加载中..."];
+    [[TServerFactory getServerInstance:@"GiftSever"]doGetPackageDetailById:gid callback:^(NSDictionary *dict){
+        [[TUtilities getInstance]dismiss];
+        self.thisGift = [[GiftDetail alloc]initGiftWithDict:dict];
+        [userTableView reloadData];
+    } failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+}
+-(void)downloadFail
+{
+    [mainDelegate endLoad];
+    [thisDownLoad ConnectionCanceled];
+}
+-(void)downloadComplete11:(HttpDownload *)hd{
+    NSDictionary *dict=[NSJSONSerialization JSONObjectWithData:hd.downloadData options:NSJSONReadingMutableContainers error:nil];
+    if(dict){
+        
+        if(hd.type==1200){
+            if([[dict objectForKey:@"status"] intValue]==0){
+                
+                if ([[[dict objectForKey:@"mapinfo"] objectForKey:@"status"] integerValue] != 0) {
+                    
+                    [self showError:[NSString stringWithFormat:@"%@",[[dict objectForKey:@"mapinfo"] objectForKey:@"msg"]]];
+                    return;
+                }
+                ProductdetailsViewController *so = [[ProductdetailsViewController alloc]initWithNibName:@"ProductdetailsViewController" bundle:nil];
+                so.detailDict = dict;
+                so.catID = self.clickPro.catID;
+                so.type = self.clickPro.type;
+                [self.navigationController pushViewController:so animated:YES];
+                [mainDelegate endLoad];
+            }
+        }
+        [mainDelegate endLoad];
+
+    }
+}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    if(section == 3){
+        return self.thisGift.buyArray.count;
+    }
+    if(section == 4){
+        return self.thisGift.sendArray.count;
+    }
+    return 1;
+}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    return 5;
+}
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath{
+    if ( indexPath.section == 0){
+        return 180.0f;
+    }
+    if ( indexPath.section == 1){
+        return 104.0f;
+    }
+    if ( indexPath.section == 2){
+        return 50.0f;
+    }
+    return 75.0f;
+}
+-(UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section{
+    if(section == 3){
+        UIView *v =[[UIView alloc]init];
+        v.backgroundColor=[UIColor clearColor];
+        return v;
+    }
+    return  nil;
+}
+-(CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section{
+    if(section == 3){
+        return 10.0f;
+    }
+    return 0.0;
+}
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    static NSString *cellName=@"CellItem";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellName];
+    if (cell==nil) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellName];
+    }
+    cell.selectionStyle=UITableViewCellSelectionStyleNone;
+    cell.backgroundColor=[UIColor clearColor];
+    cell.contentView.backgroundColor=[UIColor clearColor];
+    if(indexPath.section==0){
+        cell.selected=NO;
+        for(UIView * v in [cell.contentView subviews]){
+            [v removeFromSuperview];
+        }
+        
+        self.bannerView = [[BannerView alloc]initWithImageArray:self.thisGift.slideArray];
+        self.bannerView.delegate = self;
+        [cell.contentView addSubview:self.bannerView];
+    }
+    else if(indexPath.section==1){
+        cell.selected=NO;
+        for(UIView * v in [cell.contentView subviews]){
+            [v removeFromSuperview];
+        }
+       //礼包描述
+        DescriptionOfPD *desView=[[[NSBundle mainBundle]loadNibNamed:@"DescriptionOfPD" owner:self options:nil]lastObject];
+        desView.backgroundColor=[UIColor clearColor];
+        desView.giftName.text=self.thisGift.boxName;
+        desView.gitfDescription.text=self.thisGift.boxComments;
+        NSString *str=[NSString stringWithFormat:@"%.2f",self.thisGift.boxPrice];
+        desView.giftPrice.text=str;
+        NSString *str2=[NSString stringWithFormat:@"%.2f",self.thisGift.savePrice];
+        desView.giftSavePrice.text=str2;
+        desView.frame=CGRectMake(0, 0, 320, 104);
+        [cell.contentView addSubview:desView];
+    }
+    else if (indexPath.section==2){
+        cell.selected=NO;
+        for(UIView * v in [cell.contentView subviews]){
+            [v removeFromSuperview];
+        }
+        //购买
+        BuyViewOfPD *buyView=[[[NSBundle mainBundle]loadNibNamed:@"BuyViewOfPD" owner:self options:nil]lastObject];
+        buyView.delegate=self;
+        buyView.frame=CGRectMake(0, 0, 320, 50);
+        [cell.contentView addSubview:buyView];
+    }
+    else if (indexPath.section==3){
+        for(UIView * v in [cell.contentView subviews]){
+            [v removeFromSuperview];
+        }
+        Product *pro = [self.thisGift.buyArray objectAtIndex:indexPath.row];
+        ProductOfPD *proView=[[[NSBundle mainBundle]loadNibNamed:@"ProductOfPD" owner:self options:nil]lastObject];
+        NSString *str=[NSString stringWithFormat:@"%.2f",pro.sellPrice];
+        proView.sellPrice.text=str;
+        [proView.productImage setImageWithURL:[NSURL URLWithString:pro.attrValue]];
+        proView.productName.text=pro.commodityName;
+        [cell.contentView addSubview:proView];
+        if(indexPath.row == 0){
+            proView.markImage.image=[UIImage imageNamed:@"gift_mai_view"];
+        }
+        if(indexPath.row == ([self.thisGift.buyArray count]-1)){
+            proView.bottomImage.hidden=YES;
+        }
+    }
+    else if (indexPath.section==4){
+        for(UIView * v in [cell.contentView subviews]){
+            [v removeFromSuperview];
+        }
+        //赠
+        Product * pro = [self.thisGift.sendArray objectAtIndex:indexPath.row];
+        ProductOfPD *proView=[[[NSBundle mainBundle]loadNibNamed:@"ProductOfPD" owner:self options:nil]lastObject];
+        NSString *str=[NSString stringWithFormat:@"%.2f",pro.sellPrice];
+        proView.sellPrice.text=str;
+        [proView.productImage setImageWithURL:[NSURL URLWithString:pro.attrValue]];
+        proView.productName.text=pro.commodityName;
+        [cell.contentView addSubview:proView];
+        if(indexPath.row == 0){
+            proView.markImage.image=[UIImage imageNamed:@"gift_zeng_view"];
+        }
+        if(indexPath.row == ([self.thisGift.sendArray count]-1)){
+            proView.bottomImage.hidden=YES;
+        }
+
+    }
+    return cell;
+     
+}
+-(void)bannerViewDidClicked:(NSUInteger)index{
+    NSMutableArray *photos = [NSMutableArray arrayWithCapacity:[self.thisGift.slideArray count]];
+    NSURL *srcUrl = [NSURL URLWithString:[self.thisGift.slideArray objectAtIndex:index]];
+    for(int i = 0;i<[self.thisGift.slideArray count];i++)
+    {
+        NSString *getImageStrUrl = [NSString stringWithFormat:@"%@",[self.thisGift.slideArray objectAtIndex:i]];
+        MJPhoto *photo = [[MJPhoto alloc]init];
+        photo.url = [NSURL URLWithString:getImageStrUrl];
+        UIImageView *imageView = [[UIImageView alloc]initWithFrame:CGRectMake(0, 64, 320, 180)];
+        [imageView setImageWithURL:srcUrl];
+        photo.srcImageView = imageView;
+        [photos addObject:photo];
+    }
+    MJPhotoBrowser *browser = [[MJPhotoBrowser alloc]init];
+    browser.currentPhotoIndex = index;
+    browser.photos = photos;
+    [browser show];
+}
+-(void)pushDetail:(UIButton *)button{
+    switch (button.tag) {
+        case 999:
+        {
+            if(![[NSUserDefaults standardUserDefaults]objectForKey:@"userName"]||[[[NSUserDefaults standardUserDefaults]objectForKey:@"userName"] length]==0){
+                TLoginController *loginController = [[TLoginController alloc]initWithNavigationTitle:@"登录"];
+                loginController.delegate = self;
+                UINavigationController *navi = [[[UINavigationController alloc]initWithRootViewController:loginController]autorelease];
+                [self.navigationController presentViewController:navi animated:YES completion:nil];
+            }
+            else{
+                NSMutableArray *proArray=[NSMutableArray array];
+                [proArray addObjectsFromArray:self.thisGift.buyArray];
+                [proArray addObjectsFromArray:self.thisGift.sendArray];
+              /*  SettlementViewController *setView=[[SettlementViewController alloc]initWithNibName:@"SettlementViewController" bundle:nil];
+                
+                [setView setSettlementWithProducts:proArray SeettType:ISGift GiftID:[self.thisGift.ID intValue]];
+                setView.giftPrice=self.thisGift.boxPrice;
+                setView.gid=self.thisGift.ID;*/
+                JiesuanViewController *setView = [[JiesuanViewController alloc]init];
+                [setView setSettlementWithProducts:proArray SeettType:ISGift GiftID:self.thisGift.ID  WithPrice:self.thisGift.boxPrice];
+                [self.navigationController pushViewController:setView animated:YES];
+                }
+            
+        }
+            break;
+            
+        default:
+            break;
+    }
+}
+
+- (void)loginSuccess:(TDbuyerUser *)dbuyerUser {
+    
+}
+
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if(indexPath.section == 3)
+    {
+        Product *pro=[self.thisGift.buyArray objectAtIndex:indexPath.row];
+        [self toProductDetail:pro];
+    }
+    if(indexPath.section == 4)
+    {
+        Product *pro=[self.thisGift.sendArray objectAtIndex:indexPath.row];
+        [self toProductDetail:pro];
+    }
+}
+-(void)toProductDetail:(Product *)pro
+{
+    self.clickPro = pro;
+    if([pro.catID intValue]!=0)
+    {
+        self.clickPro.type = 1;
+        NSString *str=[NSString stringWithFormat:@"%@interface/commidty/allGoogsDisInfo?categoryID=%@&commodityId=%@&type=1",serviceHost,self.clickPro.catID,self.clickPro.productID];
+        HttpDownload *hd=[[HttpDownload alloc]init];
+        hd.delegate=self;
+        hd.method=@selector(downloadComplete11:);
+        [hd downloadFromUrl:str];
+        thisDownLoad=hd;
+        hd.type=1200;
+        [mainDelegate beginLoad];
+    }
+    else
+    {
+        self.clickPro.type = 0;
+        NSString *str=[NSString stringWithFormat:PRODETAIL_URL,serviceHost,pro.productID];
+        HttpDownload *hd=[[HttpDownload alloc]init];
+        hd.delegate=self;
+        hd.method=@selector(downloadComplete11:);
+        [hd downloadFromUrl:str];
+        thisDownLoad=hd;
+        hd.type=1200;
+        [mainDelegate beginLoad];
+    }
+}
+- (void)didReceiveMemoryWarning
+{
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+@end

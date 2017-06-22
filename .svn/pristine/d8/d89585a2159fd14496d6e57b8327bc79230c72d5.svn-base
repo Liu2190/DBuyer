@@ -1,0 +1,64 @@
+//
+//  AppDelegateServer.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-5-19.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "AppDelegateServer.h"
+
+@implementation AppDelegateServer
+-(void)doVersionUpdateBycallback:(void (^)(NSDictionary *))callback failureCallback:(void (^)(NSString *))failureCallback;
+{
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@interface/version/queryVersionInfo",serviceHost]];
+    ASIFormDataRequest *item = [[ASIFormDataRequest alloc] initWithURL:url];
+    [item setPostValue:@"1" forKey:@"type"];
+    [item setPostValue:[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"] forKey:@"versionNum"];
+    NSArray *objects = @[[[callback copy] autorelease], [[failureCallback copy] autorelease]];
+    NSArray *keys = @[kCompleteCallback, kFailureCallback];
+    NSMutableDictionary *requestInfo = [NSMutableDictionary dictionaryWithObjects:objects forKeys:keys];
+    [requestInfo addEntriesFromDictionary:[[NSDictionary alloc] initWithObjectsAndKeys:[NSNumber numberWithInt:DoVersionUpdateRequest],USER_INFO_KEY_TYPE, nil]];
+    [item setUserInfo:requestInfo];
+    [self.requestQueue addOperation:item];
+    [self start];
+    [item release];
+}
+-(void)requestFinished:(ASIHTTPRequest *)request
+{
+    [super requestFinished:request];
+    NSDictionary *requestDictionary = [request userInfo];
+    NSDictionary *packData = [[NSDictionary alloc]initWithDictionary:[requestDictionary objectForKey:@"packedData"]] ;
+    if([[requestDictionary objectForKey:USER_INFO_KEY_TYPE] floatValue] == DoVersionUpdateRequest)
+    {
+        /*
+         if([[dict objectForKey:@"status"] intValue]!=0){
+         self.downLoadUrl = [dict objectForKey:@"downLoadUrl"];
+         //如果不是最新版本
+         NSString *tips =[NSString stringWithFormat:@"发现新版本：%@",[dict objectForKey:@"versionName"]];
+         if([[dict objectForKey:@"mark"] intValue]!=0){
+         //强制更新
+         forcedUpdateView = [[UIAlertView alloc]initWithTitle:tips message:[dict objectForKey:@"updateInfo"] delegate:self cancelButtonTitle:@"去升级" otherButtonTitles:nil, nil];
+         [forcedUpdateView show];
+         }
+         else {
+         //非强制更新
+         if([[[NSUserDefaults standardUserDefaults] objectForKey:@"notForcedVersion"]isEqualToString:[dict objectForKey:@"versionName"]])
+         {
+         //不再提示
+         return;
+         }
+         self.notForcedVersion = [dict objectForKey:@"versionName"];
+         notForcedUpdateView=[[UIAlertView alloc]initWithTitle:tips message:[dict objectForKey:@"updateInfo"] delegate:self cancelButtonTitle:@"稍后再说" otherButtonTitles:@"不再提醒",@"去升级", nil];
+         [notForcedUpdateView show];
+         }
+         } else{
+         //当前版本是最新的版本
+         }
+         }
+         */
+        id callback  = [requestDictionary objectForKey:kCompleteCallback];
+        ((void(^)(NSDictionary*))callback)(packData);
+    }
+}
+@end

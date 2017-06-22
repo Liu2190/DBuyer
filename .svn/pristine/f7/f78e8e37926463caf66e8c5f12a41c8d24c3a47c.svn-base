@@ -1,0 +1,15 @@
+//
+//  HomeSever.h
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-5-15.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "TBaseServer.h"
+/**
+ *首页相关的网络请求
+ */
+@interface HomeSever : TBaseServer
+-(void)doGetHomeAllThingsBycallback:(void (^)(NSDictionary *))callback failureCallback:(void (^)(NSString *))failureCallback;
+@end

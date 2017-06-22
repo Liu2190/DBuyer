@@ -1,0 +1,80 @@
+//
+//  TAllscoOrderListController.m
+//  DBuyer
+//
+//  Created by Dbuyer mac1 on 14-5-8.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "TAllscoOrderListController.h"
+#import "TBuyerOrderDetailController.h"
+#import "TChargeOrderDetailController.h"
+#import "TTabBarControl.h"
+#import "TAllscoOrderForm.h"
+#import "TAllscoOrderCell.h"
+#import "TUtilities.h"
+
+#define tabBar_height_size  40
+
+@implementation TAllscoOrderListController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    
+    //
+    CGRect rect = CGRectMake(0, 0, self.contentView.frame.size.width, tabBar_height_size);
+    NSArray *nameItems = @[@"购卡",@"储值"];
+    TTabBarControl *orderTabBar = [[TTabBarControl alloc]initWithFrame:rect andNameItems:nameItems];
+    orderTabBar.tabBarDelegate = self;
+    [self.contentView addSubview:orderTabBar.view];
+
+    //
+    _mainScrollView = [[TAllscoOrderScrollView alloc]initWithFrame:CGRectMake(0, tabBar_height_size, self.contentView.frame.size.width, self.contentView.frame.size.height-tabBar_height_size) andPageNum:2];
+    _mainScrollView.delegate = self;
+    [self.contentView addSubview:_mainScrollView];
+    
+    //
+    _buyerList = [[TBuyerListOrderController alloc]init];
+    _buyerList.allscoOrderDelegate = self;
+    _buyerList.frame = CGRectMake(0, 0, _mainScrollView.frame.size.width, _mainScrollView.frame.size.height);
+    
+    //
+    _chargeList = [[TChargeListOrderController alloc]init];
+    _chargeList.allscoOrderDelegate = self;
+    _chargeList.frame = CGRectMake(0, 0, _mainScrollView.frame.size.width, _mainScrollView.frame.size.height);
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self doTabBarClicked:[_mainScrollView getCurrentPageNO]];
+}
+
+- (void)doTabBarClicked:(int)index {
+    UIView *pageView = [_mainScrollView getPageViewByPageIndex:index];
+    int pagesub = [pageView subviews].count;
+    
+    if (index == 0 && pagesub ==0) {
+        [pageView addSubview:_buyerList.view];
+    } else if (index == 1 && pagesub ==0) {
+        [pageView addSubview:_chargeList.view];
+    }
+    
+    [_mainScrollView scrollPageByPageNum:index];
+}
+
+- (void)pushBuyerDetail:(id)detailObj {
+    TAllscoOrderForm *orderForm = (TAllscoOrderForm*)detailObj;
+    TBuyerOrderDetailController *buyerOrderDetailController = [[TBuyerOrderDetailController alloc]initWithNavigationTitle:@"购卡订单详情" andOrderForm:orderForm];
+    [self.navigationController pushViewController:buyerOrderDetailController animated:YES];
+    [buyerOrderDetailController release];
+}
+
+- (void)pushChargeDetail:(id)detailObj {
+    TAllscoOrderForm *orderForm = (TAllscoOrderForm*)detailObj;
+    
+    TChargeOrderDetailController *buyerOrderDetailController = [[TChargeOrderDetailController alloc]initWithNavigationTitle:@"储值订单详情" andOrderForm:orderForm];
+    [self.navigationController pushViewController:buyerOrderDetailController animated:YES];
+    [buyerOrderDetailController release];
+}
+
+@end

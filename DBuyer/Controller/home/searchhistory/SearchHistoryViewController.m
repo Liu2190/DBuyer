@@ -1,0 +1,251 @@
+//
+//  SearchHistoryViewController.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 13-10-29.
+//  Copyright (c) 2013年 liuxiaodan. All rights reserved.
+//
+
+#import "SearchHistoryViewController.h"
+#import "BtnDelegate.h"
+#import "HttpDownload.h"
+#import "SearchNilViewController.h"
+#import "SearchResultViewController.h"
+#import "LeveyTabBarController.h"
+#import "DBManager.h"
+#import "RecommendScrollView.h"
+#import "GiftCell.h"
+#import "GiftdetailsViewController.h"
+#import "StartPoint.h"
+#import "SearchCell.h"
+#import "SearchFooterView.h"
+
+#import "SearchSever.h"
+#import "TServerFactory.h"
+#import "TUtilities.h"
+
+@interface SearchHistoryViewController () <RecommendScrollViewDelegate,UITextFieldDelegate,UITableViewDelegate,UITableViewDataSource,UIAlertViewDelegate>
+@property (nonatomic, assign) BOOL isHistory;
+@property (nonatomic, retain) NSMutableArray * historyArray; // 历史记录
+@property (nonatomic, retain) NSMutableArray * relateSearchArray; // 搜索相关
+@property (nonatomic, retain) NSMutableArray * searchArray;
+@property (nonatomic, retain) RecommendScrollView * recommendView;
+@property (nonatomic, retain) NSMutableArray * recommendGiftList;
+@property (nonatomic,retain)SearchFooterView *footerView;
+@end
+
+@implementation SearchHistoryViewController
+
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
+{
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        self.searchArray=[[NSMutableArray alloc]init];
+        self.historyArray = [NSMutableArray array];
+        self.relateSearchArray = [NSMutableArray array];
+        self.recommendGiftList = [NSMutableArray array];
+    }
+    return self;
+}
+
+-(void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    self.isHistory = YES;
+    [self.leveyTabBarController hidesTabBar:YES animated:YES];
+    [self getDataFromDB];
+    [self.historyTableView reloadData];
+}
+-(void)getDataFromDB
+{
+    [self.historyArray removeAllObjects];
+    for(int i = 0;i<[[[DBManager sharedDatabase] readThingFromSearchHistory] count];i++)
+    {
+        NSDictionary *item = [NSDictionary dictionaryWithObjectsAndKeys:[[[DBManager sharedDatabase] readThingFromSearchHistory] objectAtIndex:i],@"keyWord",@"0",@"count",nil];
+        [self.historyArray addObject:item];
+    }
+}
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [_tf becomeFirstResponder];
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.navigationController.navigationBarHidden = YES;
+    CGRect frame = self.navigationBarView.frame;
+    frame.origin.y = [[[UIDevice currentDevice] systemVersion] compare:@"7.0"] == NSOrderedAscending?-20:0.0;
+    self.navigationBarView.frame = frame;
+    [self.cancelButton addTarget:self action:@selector(cancelAction) forControlEvents:UIControlEventTouchUpInside];
+    self.view.backgroundColor= [UIColor whiteColor];
+    
+    _tf.delegate=self;
+    _tf.textColor=RIGHTCOLOR;
+    _tf.placeholder=[NSString stringWithFormat:@"大家都在搜：%@",[[NSUserDefaults standardUserDefaults] objectForKey:dDefaultSearch]];
+    
+    self.footerView = [[[NSBundle mainBundle]loadNibNamed:@"SearchFooterView" owner:self options:nil]lastObject];
+    self.footerView.userInteractionEnabled = YES;
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(clearUp:)];
+    [self.footerView addGestureRecognizer:tap];
+    
+    self.historyTableView.delegate = self;
+    self.historyTableView.dataSource = self;
+    self.historyTableView.frame=CGRectMake(0, [[[UIDevice currentDevice] systemVersion] compare:@"7.0"] == NSOrderedAscending?44.0f:64.0f, WindowWidth, 230);
+    self.historyTableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    
+     // 添加水平拖动浏览视图
+    self.recommendView = [[[RecommendScrollView alloc] initWithArray:self.recommendGiftList title:@"更多推荐" startPoint:CGPointMake(0,  60 + 165)] autorelease];
+    self.recommendView.RSdelegate = self;
+   // [self.view addSubview:self.recommendView];
+    [self.view bringSubviewToFront:self.historyTableView];
+}
+-(void)cancelAction
+{
+    [self.navigationController popViewControllerAnimated:NO];
+}
+
+#pragma mark - 水平拖动浏览视图
+- (void)RecommendViewDidClicked:(NSUInteger)index
+{
+    GiftCell * gift = [self.recommendGiftList objectAtIndex:index];
+    GiftdetailsViewController *gif=[[GiftdetailsViewController alloc]init];
+    gif.gid = gift.gid;
+    [self.navigationController pushViewController:gif animated:YES];
+}
+
+-(void)clearUp:(UITapGestureRecognizer *)button{
+    UIAlertView *al=[[UIAlertView alloc]initWithTitle:@"提示" message:@"确定清空搜索历史吗？" delegate:self cancelButtonTitle:@"确定" otherButtonTitles:@"取消", nil];
+    [al show];
+}
+-(void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex{
+    switch (buttonIndex) {
+        case 0:
+        {
+            [[DBManager sharedDatabase] deleteAllThingFromSearchHistory];
+            [self.historyArray removeAllObjects];
+            [self.historyTableView reloadData];
+        }
+            break;
+        case 1:{
+        }
+            break;
+        default:
+            break;
+    }
+}
+- (void)textFieldDidBeginEditing:(UITextField *)textField
+{
+    [self.historyTableView reloadData];
+}
+-(BOOL)textFieldShouldReturn:(UITextField *)textField
+{
+    if ([self getTextFieldInput].length > 0) {
+        [[DBManager sharedDatabase] insertIntoSearchHistory:[self getTextFieldInput]];
+    }
+    [self doSearchWithText:[self getTextFieldInput]];
+    return YES;
+}
+
+- (NSString *)getTextFieldInput
+{
+    return [_tf.text stringByReplacingOccurrencesOfString:@" " withString:@""];
+}
+
+#pragma mark - 输入联想
+-(BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string{
+    NSString *inStr = [textField.text stringByReplacingCharactersInRange:range withString:string];
+    if (inStr.length > 0) {
+        self.isHistory = NO;
+        [[TServerFactory getServerInstance:@"SearchSever"]doSearchEnterWordsByWords:inStr andCallback:^(NSArray *productArray){
+            [self.historyArray removeAllObjects];
+            [self.historyArray addObjectsFromArray:productArray];
+            [self.historyTableView reloadData];
+        } failureCallback:^(NSString *resp){
+            [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+        }];
+    } else {
+        self.isHistory = YES;
+    }
+    return YES;
+}
+
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    return 35.0f;
+}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    return [self.historyArray count];
+}
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    static NSString *cellName=@"Cell";
+    SearchCell *cell=[tableView dequeueReusableCellWithIdentifier:cellName];
+    if(cell==nil){
+        cell=[[[NSBundle mainBundle]loadNibNamed:@"SearchCell" owner:self options:nil]lastObject];
+    }
+    NSDictionary *dict = [self.historyArray objectAtIndex:indexPath.row];
+    [cell setCellValueWith:dict];
+    return cell;
+}
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section
+{
+    return (self.isHistory&&self.historyArray.count>0)?30:0;
+}
+- (UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section
+{
+    return (self.isHistory&&self.historyArray.count>0)?self.footerView:nil;
+}
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    NSDictionary *dict = [self.historyArray objectAtIndex:indexPath.row];
+    _tf.text = [dict objectForKey:@"keyWord"];
+    [self doSearchWithText:_tf.text];
+}
+-(void)doSearchWithText:(NSString *)text
+{
+    [[TUtilities getInstance]popTarget:self.view status:@"加载中..."];
+    [[TServerFactory getServerInstance:@"SearchSever"]doSearchGoodsByName:text andCallback:^(NSArray *productArray){
+        [[TUtilities getInstance]dismiss];
+        if(productArray.count==0)
+        {
+            //无记录
+            SearchNilViewController *so=[[SearchNilViewController alloc]initWithNibName:@"SearchNilViewController" bundle:nil];
+            so.searchNo=text;
+            [self.navigationController pushViewController:so animated:NO];
+        }
+        else
+        {
+            //有记录
+            SearchResultViewController *so=[[SearchResultViewController alloc]initWithNibName:@"SearchResultViewController" bundle:nil];
+            so.searchArray = (NSMutableArray *)productArray;
+            so.searchString = text;
+            [self.navigationController pushViewController:so animated:NO];
+        }
+    } failureCallback:^(NSString *resp){
+        [[TUtilities getInstance]popMessageError:resp target:self.view delayTime:2.f];
+    }];
+}
+- (void)backButtonClicked:(UIButton *)sender
+{
+    [self.navigationController popViewControllerAnimated:NO];
+}
+- (void)didReceiveMemoryWarning
+{
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+- (void)dealloc {
+    [_tf release];
+    self.recommendView = nil;
+    self.recommendGiftList = nil;
+    self.searchArray = nil;
+    self.historyArray = nil;
+    self.relateSearchArray = nil;
+    self.navigationBarView = nil;
+    [_historyTableView release];
+    [_cancelButton release];
+    [super dealloc];
+}
+@end

@@ -1,0 +1,321 @@
+//
+//  BargainGoodsViewController.m
+//  DBuyer
+//
+//  Created by DBuyer on 13-11-6.
+//  Copyright (c) 2013年 liuxiaodan. All rights reserved.
+//  注：特价商品、特色商品、每月新品、应季商品、销售排行、由banner图跳转的商品列表、购物车为空时的推荐商品列表等等，共用此页面
+
+#import "BargainGoodsViewController.h"
+#import "MD5.h"
+#import "HttpDownload.h"
+#import "TimeStamp.h"
+#import "UIDevice+Resolutions.h"
+#import "ProductdetailsViewController.h"
+#import "UIImageView+WebCache.h"
+#import "SouSuo.h"
+#import "NavigationBarView.h"
+#import "Product.h"
+#import "CollectCell.h"
+#import "StartPoint.h"
+#import "BargainHeaderModel.h"
+#import "BargainHeaderView.h"
+#import "BargainModel.h"
+#import "EasyWebViewViewController.h"
+#import "ShareView.h"
+#import "ProductCell.h"
+
+@interface BargainGoodsViewController () <NavigationBarViewDelegate>
+@property (nonatomic, assign) NavigationBarView * navigationView;
+@property (nonatomic, retain) UILabel * footLabel;
+@property (nonatomic, assign) BargainHeaderView *bargainHeaderView;
+@property (nonatomic, retain) BargainModel *bargainModel;
+@property (nonatomic, assign) ShareView *shareView;
+@end
+@implementation BargainGoodsViewController
+
+@synthesize listDic,catName,current_page,page_count,source,classId,listUrlString;
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
+{
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        _typeID = [[NSString alloc]init];
+        spID = [[NSString alloc]init];
+        categoryId = [[NSString alloc]init];
+        self.bargainModel = [[BargainModel alloc]init];
+    }
+    return self;
+}
+
+-(void)viewWillDisappear:(BOOL)animated{
+    [super viewWillDisappear:animated];
+}
+-(void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [self.leveyTabBarController hidesTabBar:YES animated:NO];
+}
+
+-(void)downloadFail
+{
+    [mainDelegate endLoad];
+}
+
+-(void)downloadComplete:(HttpDownload *)hd
+{
+    NSDictionary *dict=[NSJSONSerialization JSONObjectWithData:hd.downloadData options:NSJSONReadingMutableContainers error:nil];
+    if(dict)
+    {
+        [mainDelegate endLoad];
+        if(hd.type == 16)
+        {
+            [self.bargainModel getDataWith:(NSMutableDictionary *)dict];
+            [userTable reloadData];
+        }
+            if (hd.type == 1200)
+            {
+                [mainDelegate endLoad];
+                if ([[[dict objectForKey:@"mapinfo"] objectForKey:@"status"] integerValue] != 0)
+                {
+                    
+                    [self showError:[NSString stringWithFormat:@"%@",[[dict objectForKey:@"mapinfo"] objectForKey:@"msg"]]];
+                    return;
+                }
+                if(source == CharacteristicsGoods ||source == TheNewMonthly ||source == BargainGoods||source == SeasonalGoods)
+                {
+                    ProductdetailsViewController *so=[[ProductdetailsViewController alloc]initWithNibName:@"ProductdetailsViewController" bundle:nil];
+                    so.type = 1;
+                    so.catID = [NSString stringWithFormat:@"%@",categoryId];
+                    so.detailDict = dict;
+                    [self.navigationController pushViewController:so animated:YES];
+                    [mainDelegate endLoad];
+                }
+                else
+                {
+                    //推荐商品或者轮播图商品列表进入商品详情
+                    ProductdetailsViewController *so=[[ProductdetailsViewController alloc]initWithNibName:@"ProductdetailsViewController" bundle:nil];
+                    so.type = 0;
+                    so.detailDict = dict;
+                    [self.navigationController pushViewController:so animated:YES];
+                    [mainDelegate endLoad];
+                }
+            }
+        }
+}
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    [self.navigationController.navigationBar setHidden:YES];
+    self.view.backgroundColor=BACKCOLOR;
+    [self addLoadView];
+    mainDelegate = [self mainDelegate];
+    [self.bargainModel getDataWith:(NSMutableDictionary *)listDic];
+    self.navigationView = [NavigationBarView navigationBarView];
+    if([self.bargainModel.bHModel.activInterfaceUrl length]!=0&& [self.bargainModel.bHModel.activShareText length]!=0)
+    {
+        [self.navigationView setLeftImage:[UIImage imageNamed:@"Image_HomeView_back"] rightImage:[UIImage imageNamed:@"pro_share_image"] titleImage:nil title:catName];
+    }
+    else
+    {
+        [self.navigationView setLeftImage:[UIImage imageNamed:@"Image_HomeView_back"] rightImage:nil titleImage:nil title:catName];
+    }
+    self.navigationView.delegate = self;
+    [self.view addSubview:self.navigationView];
+    userTable=[[UITableView alloc]initWithFrame:CGRectMake(0, [StartPoint startPoint], 320, WindowHeight-TabbarHeight-[StartPoint startPoint]) style:UITableViewStylePlain];
+    userTable.backgroundColor=BACKCOLOR;
+    userTable.separatorStyle=UITableViewCellSeparatorStyleNone;
+    [self.view addSubview:userTable];
+    userTable.delegate=self;
+    userTable.dataSource=self;
+    self.bargainHeaderView = [[BargainHeaderView alloc] initHeaderViewWith:self.bargainModel.bHModel];
+    self.bargainHeaderView.deleagate = self;
+    userTable.tableHeaderView = self.bargainHeaderView ;
+}
+#pragma mark 列表活动图片的代理方法
+-(void)bargainHeaderViewDidClick:(NSUInteger)index
+{
+    if (index == 0) {
+        //跳转到webView
+        if(self.bargainModel.bHModel.isActivHasData == YES && self.bargainModel.bHModel.activFlag == YES )
+        {
+            EasyWebViewViewController *myWeb = [[EasyWebViewViewController alloc]initWithNibName:@"EasyWebViewViewController" bundle:nil];
+            myWeb.buyUrl = self.bargainModel.bHModel.activInterfaceUrl;
+            myWeb.shareString = self.bargainModel.bHModel.activShareText;
+            [self.navigationController pushViewController:myWeb animated:YES];
+        }
+    }
+    else
+    {
+        if(self.bargainModel.bHModel.isAoskHasData == YES&& self.bargainModel.bHModel.aoskFlag == YES)
+        {
+            //跳转到购买奥斯卡列表
+        }
+    }
+}
+#pragma mark navigationBar 代理方法
+- (void)navigationBarDidClickButton:(NSInteger)buttonIndex
+{
+    if (buttonIndex == 0) {
+        [self.navigationController popViewControllerAnimated:YES];
+    }
+    if (buttonIndex == 1)
+    {
+        NSString *shareContent=self.bargainModel.bHModel.activInterfaceUrl;//分享的url需要确定
+        NSString *titleString = self.bargainModel.bHModel.activShareText;//分享的内容
+        self.shareView = [[ShareView alloc]initShareViewWith:titleString AndContent:shareContent AndImage:@"Icon.png"];
+        [self.view addSubview:self.shareView];
+    }
+}
+#pragma mark - Notification-pleaseCancelLoad
+-(void)pleaseCancelLoad
+{
+    [mainDelegate endLoad];
+    [thisDownLoad ConnectionCanceled];
+}
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    return 132;
+}
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    return [self.bargainModel.productListArray count];
+}
+-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    static NSString *cellName=@"CellItem";
+    ProductCell *cell = [tableView dequeueReusableCellWithIdentifier:cellName];
+    if(cell==nil)
+    {
+        cell = [[[NSBundle mainBundle]loadNibNamed:@"ProductCell" owner:self options:nil]lastObject];
+    }
+    [cell showWithProduct:[self.bargainModel.productListArray objectAtIndex:indexPath.row]];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    if (indexPath.row == self.bargainModel.productListArray.count-1) {
+        if (!self.footLabel && current_page < page_count) {
+            userTable.contentSize  = CGSizeMake(320, userTable.contentSize.height+45);
+            self.footLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, userTable.contentSize.height - 40, 320, 30)];
+            self.footLabel.text = @"上拉加载更多";
+            self.footLabel.font = [UIFont systemFontOfSize:13];
+            self.footLabel.textColor = [UIColor darkGrayColor];
+            self.footLabel.textAlignment = NSTextAlignmentCenter;
+            [userTable addSubview:self.footLabel];
+        }
+    }
+    return cell;
+}
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if(source == CharacteristicsGoods || source == TheNewMonthly || source == BargainGoods || source == SeasonalGoods)
+    {
+        Product *thisProduct = [self.bargainModel.productListArray objectAtIndex:indexPath.row];
+        spID = thisProduct.goodsID;
+        categoryId = thisProduct.catID;
+        HttpDownload *hd=[[HttpDownload alloc]init];
+        thisDownLoad = hd;
+        hd.type=1200;
+        hd.delegate=self;
+        hd.method=@selector(downloadComplete:);
+        hd.failMethod = @selector(downloadFail);
+        NSString *str=[NSString stringWithFormat:@"%@interface/commidty/allGoogsDisInfo",serviceHost];
+        NSString *strTejia=[NSString stringWithFormat:@"categoryID=%@&commodityId=%@&type=1",categoryId,spID];
+        NSString *str2=[NSString stringWithFormat:@"%@?%@",str,strTejia];
+        [hd downloadFromUrl:str2];
+        [mainDelegate beginLoad];
+    }
+    else
+    {
+        //推荐商品 或者 轮播图商品列表 进入商品详情
+        Product *thisProduct = [self.bargainModel.productListArray objectAtIndex:indexPath.row];
+        spID = thisProduct.goodsID;
+        HttpDownload *hd=[[HttpDownload alloc]init];
+        thisDownLoad = hd;
+        hd.type=1200;
+        hd.delegate=self;
+        hd.method=@selector(downloadComplete:);
+        hd.failMethod = @selector(downloadFail);
+         NSString *str=[NSString stringWithFormat:PRODETAIL_URL,serviceHost,spID];
+        [hd downloadFromUrl:str];
+        [mainDelegate beginLoad];
+    }
+}
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate
+{
+    if (scrollView.contentOffset.y + 500 > scrollView.contentSize.height ){
+        if (current_page < page_count){
+            [self loadMore];
+        }
+    }
+}
+- (void)loadMore
+{
+    //点击加载更多
+    [self getDataFromNet:1];
+}
+-(void)getDataFromNet:(int )type
+{
+    [self.footLabel removeFromSuperview];
+    self.footLabel = nil;
+    if (type == 1)
+    {
+        isMore = YES;
+    }
+    else if(type==2)
+    {
+        isMore = NO;
+    }
+    current_page ++;
+    HttpDownload *hd=[[HttpDownload alloc]init];
+    thisDownLoad = hd;
+    hd.delegate=self;
+    hd.type=16;
+    hd.method=@selector(downloadComplete:);
+    hd.failMethod = @selector(loadFail);
+    [mainDelegate beginLoad];
+    if(source == BargainGoods)
+    {
+        //特价商品
+        NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[NSString stringWithFormat:@"%@",_typeID],@"goodsClass",[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",[NSString stringWithFormat:@"%d",current_page],@"page",nil];
+        NSString *tejiaUrl = [NSString stringWithFormat:TEJIA,serviceHost];
+        [hd getResultData:dict baseUrl:tejiaUrl];
+        
+    }
+    else if (source == SeasonalGoods)
+    {
+        //应季商品
+        NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[NSString stringWithFormat:@"%@",_typeID],@"goodsClass",[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",[NSString stringWithFormat:@"%d",current_page],@"page",nil];
+        NSString *yingjiUrl = [NSString stringWithFormat:Yingji,serviceHost];
+        [hd getResultData:dict baseUrl:yingjiUrl];
+    }
+    else if (source == CharacteristicsGoods)
+    {
+        //特色商品
+        NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:classId,@"classId",@"1",@"goodsClass",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",[NSString stringWithFormat:@"%d",current_page],@"page",nil];
+        NSString *teseerjiUrl = [NSString stringWithFormat:teseerji,serviceHost];
+        [hd getResultData:dict baseUrl:teseerjiUrl];
+    }
+    else if (source == TheNewMonthly)
+    {
+        //每月新品
+        NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:classId,@"classId",@"2",@"goodsClass",[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",[NSString stringWithFormat:@"%d",current_page],@"page",nil];
+        NSString *meiyuerjiUrl = [NSString stringWithFormat:Meiyueerji,serviceHost];
+        [hd getResultData:dict baseUrl:meiyuerjiUrl];
+    }
+    else if (source == FromRecommend)
+    {
+        //推荐商品
+        NSMutableDictionary *dict=[[NSMutableDictionary alloc]initWithObjectsAndKeys:[TimeStamp timeStamp],@"stamp",[MD5 md5],@"verify",[[NSUserDefaults standardUserDefaults]objectForKey:@"versionNum"],@"versionNum",@"2",@"os_code",[NSString stringWithFormat:@"%d",[UIDevice currentResolution]],@"size_code",nil];
+        [hd getResultData:dict baseUrl:[NSString stringWithFormat:askAdjustProduct,serviceHost]];
+    }
+    else if(source == BannerProList)
+    {
+        //轮播图商品列表
+        [hd downloadFromUrl:listUrlString];
+    }
+}
+- (void)didReceiveMemoryWarning
+{
+    [super didReceiveMemoryWarning];
+}
+
+@end

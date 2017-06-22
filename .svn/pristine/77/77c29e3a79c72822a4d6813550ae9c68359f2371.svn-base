@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="5053" systemVersion="13B42" targetRuntime="iOS.CocoaTouch" variant="6xAndEarlier" propertyAccessControl="none">
+    <dependencies>
+        <deployment defaultVersion="1552" identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="3733"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="1" customClass="CreatePlanView">
+            <rect key="frame" x="0.0" y="0.0" width="320" height="350"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="sec_cancel_image.png" id="fju-o4-5NO">
+                    <rect key="frame" x="12" y="5" width="16" height="16"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Image_Collect_07.png" id="qOY-fQ-DrM">
+                    <rect key="frame" x="287" y="5" width="20" height="15"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <button opaque="NO" tag="22" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" id="Gb7-0h-gy8">
+                    <rect key="frame" x="0.0" y="0.0" width="72" height="36"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                    <state key="normal">
+                        <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <connections>
+                        <action selector="btnClick:" destination="1" eventType="touchUpInside" id="w5E-Kv-2W6"/>
+                    </connections>
+                </button>
+                <button opaque="NO" tag="23" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" id="Yeo-Kn-bRf">
+                    <rect key="frame" x="252" y="-1" width="68" height="36"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                    <state key="normal">
+                        <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <connections>
+                        <action selector="btnClick:" destination="1" eventType="touchUpInside" id="TJ7-6G-UyU"/>
+                    </connections>
+                </button>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="sec_boxback_image.png" id="9pP-xZ-Ndz">
+                    <rect key="frame" x="47" y="80" width="230" height="200"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <textField opaque="NO" clipsSubviews="YES" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="选择分类，写计划" minimumFontSize="17" id="DW8-Ln-sJa">
+                    <rect key="frame" x="104" y="39" width="173" height="30"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                    <textInputTraits key="textInputTraits"/>
+                </textField>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="sec_down_image.png" id="GQj-TD-6eQ">
+                    <rect key="frame" x="88" y="50" width="8" height="6"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="sec_default_img.png" id="7xn-Qb-Dbp">
+                    <rect key="frame" x="48" y="35" width="35" height="35"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </imageView>
+                <button opaque="NO" tag="24" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" id="2X0-uQ-0jk">
+                    <rect key="frame" x="20" y="35" width="60" height="35"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                    <state key="normal">
+                        <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                    </state>
+                    <connections>
+                        <action selector="makeScrolVisible:" destination="1" eventType="touchUpInside" id="Dk5-lp-IWU"/>
+                    </connections>
+                </button>
+            </subviews>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <connections>
+                <outlet property="cancelButton" destination="Gb7-0h-gy8" id="Iib-vW-KJx"/>
+                <outlet property="chooseButton" destination="2X0-uQ-0jk" id="90D-7G-eft"/>
+                <outlet property="confirmButton" destination="Yeo-Kn-bRf" id="Ig0-Ns-DSR"/>
+                <outlet property="confirmImage" destination="qOY-fQ-DrM" id="bsx-dg-c9Q"/>
+                <outlet property="createBackImage" destination="9pP-xZ-Ndz" id="nLG-5d-KKc"/>
+                <outlet property="createTf" destination="DW8-Ln-sJa" id="srM-0T-nPI"/>
+                <outlet property="imageCancel" destination="fju-o4-5NO" id="qLo-Zp-ruP"/>
+                <outlet property="indicateImage" destination="GQj-TD-6eQ" id="1mB-4B-4iB"/>
+                <outlet property="planImage" destination="7xn-Qb-Dbp" id="YFJ-lN-D1j"/>
+            </connections>
+        </view>
+    </objects>
+    <resources>
+        <image name="Image_Collect_07.png" width="39" height="29"/>
+        <image name="sec_boxback_image.png" width="461" height="396"/>
+        <image name="sec_cancel_image.png" width="32" height="33"/>
+        <image name="sec_default_img.png" width="60" height="60"/>
+        <image name="sec_down_image.png" width="16" height="12"/>
+    </resources>
+</document>

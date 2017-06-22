@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VariablesViewState
+   version = "1.0">
+   <ContextStates>
+      <ContextState
+         contextName = "-[ProductdetailsViewController pushDetail:]:ProductdetailsViewController.m">
+      </ContextState>
+      <ContextState
+         contextName = "-[CheckoutViewController viewDidLoad]:CheckoutViewController.m">
+         <PersistentStrings>
+            <PersistentString
+               value = "tempJPTime">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "-[CheckoutViewController tableView:cellForRowAtIndexPath:]:CheckoutViewController.m">
+         <PersistentStrings>
+            <PersistentString
+               value = "tempJPTime">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "-[FourViewController alertView:clickedButtonAtIndex:]:FourViewController.m">
+         <PersistentStrings>
+            <PersistentString
+               value = "goodsLsit">
+            </PersistentString>
+            <PersistentString
+               value = "cellList">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "-[FourViewController disappearProceWithEditIndex:]:FourViewController.m">
+      </ContextState>
+   </ContextStates>
+</VariablesViewState>

@@ -1,0 +1,53 @@
+//
+//  ProBannerCell.m
+//  DBuyer
+//
+//  Created by liuxiaodan on 14-4-28.
+//  Copyright (c) 2014年 liuxiaodan. All rights reserved.
+//
+
+#import "ProBannerCell.h"
+
+@implementation ProBannerCell
+
+- (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
+{
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (self) {
+        // Initialization code
+    }
+    return self;
+}
+
+- (void)awakeFromNib
+{
+    // Initialization code
+    self.userInteractionEnabled = YES;
+    self.photoImage.userInteractionEnabled = YES;
+    self.selectionStyle = UITableViewCellSelectionStyleNone;
+}
+-(void)setProBannerCellWith:(ProductDetail *)product
+{
+    NSString *imageName = product.isCollect==NO?@"134.png":@"140.png";
+    UIImage *image = [UIImage imageNamed:imageName];
+    [self.collectButton setImage:image forState:UIControlStateNormal];
+    self.collectButton.userInteractionEnabled = !product.isCollect;
+}
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated
+{
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+-(void)collectAnimation
+{
+    CAKeyframeAnimation *popAnimation = [CAKeyframeAnimation animationWithKeyPath:@"transform"];
+    popAnimation.duration = 0.4;
+    popAnimation.values = @[[NSValue valueWithCATransform3D:CATransform3DMakeScale(0.01f, 0.01f, 1.0f)],[NSValue valueWithCATransform3D:CATransform3DMakeScale(1.5f, 1.5f, 1.4f)],[NSValue valueWithCATransform3D:CATransform3DMakeScale(0.9f, 0.9f, 1.0f)],[NSValue valueWithCATransform3D:CATransform3DIdentity]];//x,y,z轴放大的倍数，>1放大，<1缩小
+    popAnimation.keyTimes = @[@0.1f, @0.5f, @0.85f, @1.0f];
+    popAnimation.timingFunctions =@[[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut],[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut],[CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut]];
+    [self.collectButton.layer addAnimation:popAnimation forKey:nil];
+    [self.collectButton setImage:[UIImage imageNamed:@"140.png"] forState:UIControlStateNormal];
+    self.collectButton.userInteractionEnabled = NO;
+}
+@end
